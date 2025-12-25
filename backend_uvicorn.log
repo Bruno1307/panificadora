@@ -1,0 +1,201 @@
+nohup: ignorando entrada
+INFO:     Started server process [50381]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:35090 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+INFO:     ('127.0.0.1', 41732) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41744 - "GET /config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41746 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41748) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:35090 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41746 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41746 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:35090 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41764) - "WebSocket /ws" [accepted]
+INFO:     127.0.0.1:41744 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:41746 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41744 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41772) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41744 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41746 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41780) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:35090 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41744 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35090 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41792) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:35090 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41744 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 54998) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41746 - "GET /config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35090 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41746 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 55008) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41746 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:35090 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 55020) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41744 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41746 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41744 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 55026) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41744 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+[DEBUG] X-Cashier-Token recebido: 'None' (esperado: 'caixa123')
+INFO:     127.0.0.1:52776 - "POST /orders/3/pay HTTP/1.1" 403 Forbidden
+INFO:     connection closed
+INFO:     127.0.0.1:41904 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41892) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41880 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41880 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:36206 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 36190) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:36174 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36174 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     ('127.0.0.1', 41836) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41846 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41860 - "GET /config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41840 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 41862) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41860 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41860 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41840 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 33552) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41846 - "GET /config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41860 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41846 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 33562) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41846 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     ('127.0.0.1', 33566) - "WebSocket /ws" [accepted]
+INFO:     127.0.0.1:41860 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:     127.0.0.1:41846 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41860 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41846 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 33582) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41846 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:41860 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 33588) - "WebSocket /ws" [accepted]
+INFO:     127.0.0.1:41840 - "GET /config HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:41846 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41840 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 33594) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:41840 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     ('127.0.0.1', 45394) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:45400 - "GET /config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45388 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45388 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:42952 - "GET /products/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42956 - "GET /products/ HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 42964) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:42956 - "GET /products/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42952 - "GET /products/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42952 - "GET /orders/pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42952 - "GET /orders/pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:42956 - "GET /config HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 44290) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:44298 - "GET /config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42952 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44298 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44298 - "GET /orders/?status=pending HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:48848 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48848 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [50381]
