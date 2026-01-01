@@ -1,8 +1,8 @@
 import axios from 'axios'
 
 // Prefer env var, fallback to current host on port 8000
-const host = window.location.hostname
-const defaultUrl = `http://${host}:8000`
-const baseURL = (import.meta as any).env?.VITE_API_URL || defaultUrl
+
+// Força o uso de 127.0.0.1:8000 para evitar problemas de localhost/IPv6
+const baseURL = 'http://127.0.0.1:8000'
 
 export const api = axios.create({ baseURL })

@@ -52,10 +52,15 @@ export default function Receipt() {
     if (!order || !pixConfig) return ''
     const txid = `PDV-${order.id}`
     const amt = Number(total.toFixed(2))
+    // Trata chave CNPJ: remove caracteres não numéricos
+    let pixKey = pixConfig.pix_key
+    if (pixKey && pixKey.replace(/\D/g, '').length === 14) {
+      pixKey = pixKey.replace(/\D/g, '')
+    }
     try {
       const code = QrCodePix({
         version: '01',
-        key: pixConfig.pix_key,
+        key: pixKey,
         name: (pixConfig.pix_name || 'Panificadora Jardim').toUpperCase(),
         city: (pixConfig.pix_city || 'SAO PAULO').toUpperCase(),
         transactionId: txid,

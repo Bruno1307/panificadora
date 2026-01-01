@@ -1,5 +1,7 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
+from ..deps_auth import require_role
+from ..models import UserRole
 import os
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -18,6 +20,7 @@ def list_orders(
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
     q: Optional[str] = None,
+    user=Depends(require_role(UserRole.caixa)),
 ):
     query = db.query(models.Order)
     if status:
@@ -34,7 +37,7 @@ def list_orders(
     return query.order_by(models.Order.created_at.desc()).all()
 
 @router.post("/", response_model=schemas.Order, status_code=201)
-def create_order(data: schemas.OrderCreate, db: Session = Depends(get_db)):
+def create_order(data: schemas.OrderCreate, db: Session = Depends(get_db), user=Depends(require_role(UserRole.balconista))):
     # Validate products and capture current unit prices
     items = []
     for it in data.items:

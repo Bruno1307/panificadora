@@ -3,11 +3,24 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from .db import engine, Base
-from .routers import products, orders
-from .ws import manager
 
-app = FastAPI(title="Panificadora Jardim API")
+from .db import engine, Base
+from .routers import products, orders, auth
+from .ws import manager
+from contextlib import asynccontextmanager
+
+
+# Lifespan handler substituindo on_event("startup")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load .env from backend folder
+    env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    load_dotenv(env_path)
+    Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(title="Panificadora Jardim API", lifespan=lifespan)
+
 # Rota raiz
 @app.get("/")
 async def root():
@@ -22,14 +35,6 @@ app.add_middleware(
     allow_headers=["*", "X-Cashier-Token", "x-cashier-token"],
 )
 
-# Create tables on startup (for dev). Replace with Alembic in prod.
-@app.on_event("startup")
-async def startup():
-    # Load .env from backend folder
-    env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-    load_dotenv(env_path)
-    Base.metadata.create_all(bind=engine)
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -42,8 +47,10 @@ async def get_config():
         "pix_city": os.getenv("PIX_CITY", "SAO PAULO"),
     }
 
+
 app.include_router(products.router)
 app.include_router(orders.router)
+app.include_router(auth.router)
 
 
 @app.websocket("/ws")

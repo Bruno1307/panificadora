@@ -1,7 +1,25 @@
+
 from __future__ import annotations
+from .db import Base
+from sqlalchemy import Enum as SqlEnum
+import enum
+
+
+# Perfis de usuário
+class UserRole(enum.Enum):
+    balconista = "balconista"
+    caixa = "caixa"
+    gerente = "gerente"
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Integer, String, ForeignKey, Numeric, DateTime, func
-from .db import Base
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(128))
+    role: Mapped[UserRole] = mapped_column(SqlEnum(UserRole), default=UserRole.balconista)
 
 class Category(Base):
     __tablename__ = "categories"
