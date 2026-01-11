@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 
 # Lifespan handler substituindo on_event("startup")
+print('>>> CRIANDO TABELAS NO BANCO DE DADOS <<<')
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load .env from backend folder
@@ -48,9 +49,14 @@ async def get_config():
     }
 
 
+
+from .routers import indicators, comandas, test_password
 app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(auth.router)
+app.include_router(indicators.router)
+app.include_router(comandas.router)
+app.include_router(test_password.router)
 
 
 @app.websocket("/ws")

@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/home/bruno/Panificadora Jardim/padaria-pdv/.venv/bin/python3" "$0" "$@"
+'''exec' "/home/bruno/Panificadora Jardim/padaria-pdv/.venv/bin/python" "$0" "$@"
 ' '''
 import sys
 from uvicorn.main import main

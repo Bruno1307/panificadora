@@ -1,4 +1,4 @@
-
+// ...existing code...
 import { useEffect, useMemo, useState } from 'react';
 import EditOrderModal from './EditOrderModal';
 // @ts-ignore
@@ -12,6 +12,7 @@ type Product = { id: number; name: string; price: number };
 type OrderItem = { product_id: number; quantity: number };
 type Order = {
   id: number;
+  order_number?: number;
   status: string;
   customer_name?: string;
   table_ref?: string;
@@ -28,25 +29,99 @@ function total(order: Order, products: Product[] = []): number {
 }
 
 export default function Cashier() {
-      // Função para imprimir recibo de um pedido
-      async function imprimirRecibo(orderId: number) {
-        // Busca os dados do pedido e produtos
-        const [orderRes, productsRes] = await Promise.all([
-          api.get(`/orders/${orderId}`),
-          api.get('/products'),
-        ]);
-        const order: Order = orderRes.data;
-        const products: Product[] = productsRes.data;
-        // Data/hora do sistema
-        const now = new Date();
-        const dataAtual = now.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        // Formata data/hora do pedido e pagamento
-        function formatarData(dt: string | undefined): string {
-          if (!dt) return '-';
-          const d = new Date(dt);
-          if (isNaN(d.getTime())) return dt.replace('T',' ').slice(0,16);
-          return d.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  // ...existing code...
+  // Função para imprimir recibo em PDF
+  function imprimirRecibo(orderId: number) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+      // TODO: Exibir mensagem amigável ao usuário
+      return;
+    }
+    const pagamentoLabels: Record<string, string> = { 'dinheiro': 'Dinheiro', 'pix': 'Pix', 'débito': 'Débito', 'credito': 'Crédito', 'crédito': 'Crédito' };
+    const dataAtual = new Date().toLocaleString('pt-BR');
+    const html = `
+      <div style='width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:flex-start;background:var(--bg);'>
+        <div style='padding:28px 16px;font-family:sans-serif;max-width:340px;width:340px;font-size:19px;line-height:1.5;background:var(--card);border-radius:14px;box-shadow:0 2px 12px #0001; margin-left:18vw; text-align:center;'>
+          <h3 style='text-align:center;margin:0 0 6px 0;font-size:24px;'>Padaria Jardim</h3>
+          <div style='text-align:center;margin-bottom:12px;font-size:18px;'>Pedido #${order.order_number}</div>
+          <div style='text-align:left;'>Cliente: ${order.customer_name || '-'}</div>
+          <div style='text-align:left;'>Mesa: ${order.table_ref || '-'}</div>
+          <div style='text-align:left;'>Pagamento: ${pagamentoLabels[order.payment_method as string] || order.payment_method || '-'} ${dataAtual}</div>
+          <hr style='margin:14px 0' />
+          <div style='text-align:left;'>
+            ${order.items.map((it: any) => {
+              const prod = products.find((p: Product) => p.id === it.product_id);
+              const name = prod?.name || `Item ${it.product_id}`;
+              const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
+              let valor = (unitPrice * it.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              return `<div style='display:flex;justify-content:space-between'><span>${name} x${it.quantity}</span><span>R$ ${valor}</span></div>`;
+            }).join('')}
+          </div>
+          <hr style='margin:14px 0' />
+          <div style='display:flex;justify-content:space-between;font-weight:700;font-size:22px;margin-top:12px;'><span>Total da compra</span><span>R$ ${order.items.reduce((s: number, it: any) => {
+            const prod = products.find((p: Product) => p.id === it.product_id);
+            const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
+            return s + unitPrice * it.quantity;
+          }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+        </div>
+      </div>
+    `;
+    function gerarPDF() {
+      try {
+        if (!window.html2pdf) {
+          // TODO: Exibir mensagem amigável ao usuário
+          console.error('window.html2pdf não está disponível!');
+          return;
         }
+        // @ts-ignore
+        window.html2pdf().set({ filename: `recibo-pedido-${order.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
+      } catch (e) {
+        // TODO: Exibir mensagem amigável ao usuário
+        console.error('Erro ao gerar PDF:', e);
+      }
+    }
+    if (!window.html2pdf) {
+      // TODO: Exibir mensagem amigável ao usuário
+      const script = document.createElement('script');
+      script.src = '/html2pdf.bundle.min.js';
+      script.onload = () => {
+        // TODO: Exibir mensagem amigável ao usuário
+        gerarPDF();
+      };
+      script.onerror = () => {
+        // TODO: Exibir mensagem amigável ao usuário
+        console.error('Erro ao carregar /html2pdf.bundle.min.js');
+      };
+      document.body.appendChild(script);
+    } else {
+      gerarPDF();
+    }
+  }
+  useEffect(() => {
+    function atualizarPedidos() { load(); }
+    window.addEventListener('pedidoEnviadoAoCaixa', atualizarPedidos);
+    return () => window.removeEventListener('pedidoEnviadoAoCaixa', atualizarPedidos);
+  }, []);
+
+// Tipos básicos
+type Product = { id: number; name: string; price: number };
+type OrderItem = { product_id: number; quantity: number };
+type Order = {
+  id: number;
+  order_number?: number;
+  status: string;
+  customer_name?: string;
+  table_ref?: string;
+  items: OrderItem[];
+  payment_method?: string;
+};
+
+// Função utilitária para calcular total do pedido
+function total(order: Order, products: Product[] = []): number {
+  return order.items.reduce((sum, item) => {
+    const p = products.find(p => p.id === item.product_id);
+    return sum + (p ? p.price * item.quantity : 0);
+  }, 0);
         // Tradução dos métodos de pagamento
         const pagamentoLabels: Record<string, string> = { 'dinheiro': 'Dinheiro', 'pix': 'Pix', 'débito': 'Débito', 'credito': 'Crédito', 'crédito': 'Crédito' };
         // Cria HTML do recibo
@@ -63,10 +138,10 @@ export default function Cashier() {
           return s + unitPrice * it.quantity;
         }, 0);
         const html = `
-          <div style='width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:flex-start;background:#fff;'>
-            <div style='padding:28px 16px;font-family:sans-serif;max-width:340px;width:340px;font-size:19px;line-height:1.5;background:#fff;border-radius:14px;box-shadow:0 2px 12px #0001; margin-left:18vw; text-align:center;'>
+          <div style='width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:flex-start;background:var(--bg);'>
+            <div style='padding:28px 16px;font-family:sans-serif;max-width:340px;width:340px;font-size:19px;line-height:1.5;background:var(--card);border-radius:14px;box-shadow:0 2px 12px #0001; margin-left:18vw; text-align:center;'>
               <h3 style='text-align:center;margin:0 0 6px 0;font-size:24px;'>Padaria Jardim</h3>
-              <div style='text-align:center;margin-bottom:12px;font-size:18px;'>Pedido #${order.id}</div>
+              <div style='text-align:center;margin-bottom:12px;font-size:18px;'>Pedido #${order.order_number}</div>
               <div style='text-align:left;'>Cliente: ${order.customer_name || '-'}</div>
               <div style='text-align:left;'>Mesa: ${order.table_ref || '-'}</div>
               <div style='text-align:left;'>Pagamento: ${pagamentoLabels[order.payment_method as string] || order.payment_method || '-'} ${dataAtual}</div>
@@ -87,14 +162,36 @@ export default function Cashier() {
         `;
         // Carrega html2pdf dinamicamente se não estiver presente
         function gerarPDF() {
-          // @ts-ignore
-          window.html2pdf().set({ filename: `recibo-pedido-${order.id}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
+          try {
+            if (!window.html2pdf) {
+              alert('Atenção: window.html2pdf não está disponível no momento da geração do PDF.');
+              console.error('window.html2pdf não está disponível!');
+              return;
+            }
+            // @ts-ignore
+            window.html2pdf().set({ filename: `recibo-pedido-${order.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
+            alert('Comando para gerar PDF executado. Se não baixar, verifique bloqueio de popups/downloads.');
+            console.log('Comando window.html2pdf().from(...).save() executado.');
+          } catch (e) {
+            alert('Erro ao gerar PDF do recibo. Tente novamente ou verifique se o navegador permite downloads automáticos.');
+            console.error('Erro ao gerar PDF:', e);
+          }
         }
         // @ts-ignore
         if (!window.html2pdf) {
+          alert('window.html2pdf não está disponível, carregando biblioteca...');
+          console.log('window.html2pdf não está disponível, carregando /html2pdf.bundle.min.js');
           const script = document.createElement('script');
           script.src = '/html2pdf.bundle.min.js';
-          script.onload = gerarPDF;
+          script.onload = () => {
+            alert('Biblioteca html2pdf carregada! Tentando gerar PDF...');
+            console.log('Biblioteca html2pdf carregada!');
+            gerarPDF();
+          };
+          script.onerror = () => {
+            alert('Erro ao carregar a biblioteca de PDF. Verifique sua conexão ou recarregue a página.');
+            console.error('Erro ao carregar /html2pdf.bundle.min.js');
+          };
           document.body.appendChild(script);
         } else {
           gerarPDF();
@@ -355,7 +452,7 @@ export default function Cashier() {
         {orders.map(o => (
           <li key={o.id}>
             <div>
-              <strong>#{o.id}</strong>
+              <strong>#{o.order_number}</strong>
               <div className="item-meta">{statusLabels[o.status] || o.status} · {o.customer_name || 'Sem nome'} · {o.table_ref || 'Sem mesa'}</div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', margin: '8px 0' }}>
                 <span>{total(o, products).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
@@ -375,8 +472,34 @@ export default function Cashier() {
       </ul>
       {editingOrder && (
         <EditOrderModal onClose={closeEditModal} escEnabled>
-          <div className="card" style={{ width: 600, maxWidth:'95vw', maxHeight:'90vh', overflow:'auto' }}>
-            <h3>Editar Pedido #{editingOrder.id}</h3>
+          <div className="card edit-modal-product-list" style={{
+            width: 600,
+            maxWidth: '95vw',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            paddingRight: 12,
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#b3b8e0 #f4f4fa',
+            boxShadow: '0 8px 32px rgba(34, 41, 94, 0.18), 0 1.5px 8px rgba(0,0,0,0.10)',
+            background: '#fff',
+            borderRadius: 18,
+          }}>
+            <style>{`
+              .edit-modal-product-list::-webkit-scrollbar {
+                width: 8px;
+                background: #f4f4fa;
+                border-radius: 8px;
+              }
+              .edit-modal-product-list::-webkit-scrollbar-thumb {
+                background: #b3b8e0;
+                border-radius: 8px;
+              }
+              .edit-modal-product-list::-webkit-scrollbar-thumb:hover {
+                background: #6c7bff;
+              }
+            `}</style>
+            <h3>Editar Pedido #{editingOrder.order_number}</h3>
             <div style={{ display:'flex', gap:8, marginBottom:8, flexWrap:'wrap' }}>
               <input className="input" placeholder="Nome do cliente" value={editCustomer} onChange={e=>setEditCustomer(e.target.value)} />
               <input className="input" placeholder="Mesa/Comanda" value={editTable} onChange={e=>setEditTable(e.target.value)} />
@@ -388,11 +511,43 @@ export default function Cashier() {
                   const p = products.find(p => p.id === i.product_id)
                   if (!p) return null
                   return (
-                    <li key={i.product_id} style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span>{p.name}</span>
-                      <input className="input" type="number" min={1} value={i.quantity} onChange={e=>updateEditQty(i.product_id, Math.max(1,parseInt(e.target.value)||1))} style={{width:60}} />
-                      <span>{(p.price * i.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      <button className="button danger" onClick={()=>removeEditItem(i.product_id)}>Remover</button>
+                    <li key={i.product_id} style={{
+                      display:'flex',alignItems:'center',gap:8,
+                      padding:'8px 0',
+                      borderBottom:'1px solid rgba(255,255,255,0.08)'
+                    }}>
+                      <span style={{flex:2}}>{p.name}</span>
+                      <div style={{flex:2,display:'flex',alignItems:'center',justifyContent:'flex-start',gap:0}}>
+                        <button className="button" style={{background:'#e53e3e',color:'#fff',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',borderRadius:'6px 0 0 6px',padding:'4px 12px',fontSize:18,cursor:i.quantity>1?'pointer':'not-allowed',opacity:i.quantity>1?1:0.5,transition:'all 0.2s'}} onClick={()=>updateEditQty(i.product_id, Math.max(1, i.quantity-1))} disabled={i.quantity<=1}>−</button>
+                        <input
+                          className="input"
+                          type="number"
+                          min={1}
+                          value={i.quantity}
+                          onChange={e => updateEditQty(i.product_id, Math.max(1, parseInt(e.target.value) || 1))}
+                          style={{
+                            width:48,
+                            textAlign:'center',
+                            fontWeight:600,
+                            fontSize:18,
+                            borderRadius:0,
+                            borderLeft:'none',
+                            borderRight:'none',
+                            background:'#fff',
+                            boxShadow:'none'
+                          }}
+                        />
+                        <button className="button" style={{background:'#22c55e',color:'#fff',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',borderRadius:'0 6px 6px 0',padding:'4px 12px',fontSize:18,cursor:'pointer',transition:'all 0.2s'}} onClick={()=>updateEditQty(i.product_id, i.quantity+1)}>+</button>
+                        <button className="button danger" style={{marginLeft:12,background:'#e53e3e',color:'#fff',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',borderRadius:6,padding:'4px 10px',fontSize:15,cursor:'pointer',transition:'all 0.2s'}} onClick={()=>removeEditItem(i.product_id)}>Remover</button>
+                                  <style>{`
+                                    .edit-modal-product-list .button:hover:not(:disabled) {
+                                      filter: brightness(1.08) saturate(1.2);
+                                      box-shadow: 0 2px 8px #22c55e33;
+                                      transform: translateY(-1px) scale(1.04);
+                                    }
+                                  `}</style>
+                      </div>
+                      <span style={{flex:1, textAlign:'right'}}>{(p.price * i.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                     </li>
                   )
                 })}
@@ -427,48 +582,51 @@ export default function Cashier() {
                   const qty = already ? already.quantity : 0;
                   return (
                     <li key={p.id} style={{display:'flex',alignItems:'center',gap:8, background:'#f7f7ff'}}>
-                      <span>🔥 {p.name}</span>
-                      <span>{p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      <button className="button" onClick={() => {
-                        if (qty > 1) updateEditQty(p.id, qty-1);
-                        else if (qty === 1) removeEditItem(p.id);
-                      }} disabled={qty===0}>-</button>
-                      <span style={{minWidth:24,display:'inline-block',textAlign:'center'}}>{qty}</span>
-                      <button className="button" onClick={() => {
-                        if (qty === 0) addEditItem(p.id);
-                        else updateEditQty(p.id, qty+1);
-                      }}>+</button>
+                      <span style={{flex:2}}>🔥 {p.name}</span>
+                      <span style={{flex:1, textAlign:'right'}}>{p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:4,flex:1,justifyContent:'flex-end'}}>
+                        <button className={qty===0 ? 'button button-disabled' : 'button'} onClick={() => {
+                          if (qty > 1) updateEditQty(p.id, qty-1);
+                          else if (qty === 1) removeEditItem(p.id);
+                        }} disabled={qty===0}>−</button>
+                        <span style={{minWidth:24,display:'inline-block',textAlign:'center'}}>{qty}</span>
+                        <button className="button button-plus" onClick={() => {
+                          if (qty === 0) addEditItem(p.id);
+                          else updateEditQty(p.id, qty+1);
+                        }}>+</button>
+                      </div>
                     </li>
                   );
                 });
               })()}
               {/* Lista normal filtrada */}
               {products
-                .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) &&
-                  !orders.some(order => order.items.some(item => item.product_id === p.id)))
+                .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
                 .map(p => {
                   const already = editItems.find(i => i.product_id === p.id);
                   const qty = already ? already.quantity : 0;
                   return (
                     <li key={p.id} style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span>{p.name}</span>
-                      <span>{p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      <button className="button" onClick={() => {
-                        if (qty > 1) updateEditQty(p.id, qty-1);
-                        else if (qty === 1) removeEditItem(p.id);
-                      }} disabled={qty===0}>-</button>
-                      <span style={{minWidth:24,display:'inline-block',textAlign:'center'}}>{qty}</span>
-                      <button className="button" onClick={() => {
-                        if (qty === 0) addEditItem(p.id);
-                        else updateEditQty(p.id, qty+1);
-                      }}>+</button>
+                      <span style={{flex:2}}>{p.name}</span>
+                      <span style={{flex:1, textAlign:'right'}}>{p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:4,flex:1,justifyContent:'flex-end'}}>
+                        <button className={qty===0 ? 'button button-disabled' : 'button'} onClick={() => {
+                          if (qty > 1) updateEditQty(p.id, qty-1);
+                          else if (qty === 1) removeEditItem(p.id);
+                        }} disabled={qty===0}>−</button>
+                        <span style={{minWidth:24,display:'inline-block',textAlign:'center'}}>{qty}</span>
+                        <button className="button button-plus" onClick={() => {
+                          if (qty === 0) addEditItem(p.id);
+                          else updateEditQty(p.id, qty+1);
+                        }}>+</button>
+                      </div>
                     </li>
                   );
                 })}
             </ul>
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
-              <button className="button secondary" onClick={closeEditModal}>Cancelar</button>
-              <button className="button success" onClick={saveEditOrder} disabled={editItems.length===0}>Salvar alterações</button>
+              <button className="button secondary" style={{background:'#eee',color:'#222',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer'}} onClick={closeEditModal}>Cancelar</button>
+              <button className="button success" style={{background:'#22c55e',color:'#fff',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer',opacity:editItems.length===0?0.5:1}} onClick={saveEditOrder} disabled={editItems.length===0}>Salvar alterações</button>
             </div>
           </div>
         </EditOrderModal>
@@ -477,7 +635,7 @@ export default function Cashier() {
       {payingOrder && (
         <EditOrderModal onClose={closeModal} escEnabled>
           <div className="card" style={{ width: 560, maxWidth:'90vw' }}>
-            <h3>Receber pagamento · Pedido #{payingOrder.id}</h3>
+            <h3>Receber pagamento · Pedido #{payingOrder.order_number}</h3>
             <div style={{marginBottom:12}}>
               <strong>Itens do pedido</strong>
               <ul className="list">
@@ -515,11 +673,12 @@ export default function Cashier() {
                       type="text"
                       inputMode="decimal"
                       pattern="[0-9]*[.,]?[0-9]*"
-                      value={cashReceivedRaw || payingTotal.toFixed(2).replace('.', ',')}
+                      value={cashReceivedRaw}
                       onChange={e => {
-                        // Mascara moeda pt-BR
+                        setCashReceivedRaw(e.target.value);
+                      }}
+                      onBlur={e => {
                         let v = e.target.value.replace(/[^0-9,]/g, '');
-                        // Garante formato 0,00
                         v = v.replace(/(\d{1,})(,\d{0,2})?.*/, (m: string, int: string, dec: string) => int + (dec || ''));
                         setCashReceivedRaw(v);
                       }}
@@ -545,8 +704,18 @@ export default function Cashier() {
                     <div style={{ flex:1 }}>
                       <div className="item-meta">Chave Pix: {pixKey}</div>
                       <div className="item-meta">Nome: {pixName} · Cidade: {pixCity}</div>
-                      <div style={{marginTop:8, fontSize:12, wordBreak:'break-all', background:'#eee', padding:8, borderRadius:4}}>
-                        <b>Payload Pix:</b><br/>
+                      <div style={{
+                        marginTop:8,
+                        fontSize:13,
+                        wordBreak:'break-all',
+                        background:'#f8f8f8',
+                        color:'#111',
+                        padding:8,
+                        borderRadius:4,
+                        fontFamily:'monospace',
+                        textAlign:'left'
+                      }}>
+                        <b style={{color:'#111'}}>Payload Pix:</b><br/>
                         <span>{payload}</span>
                       </div>
                     </div>
@@ -557,11 +726,10 @@ export default function Cashier() {
               }
             })()}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
-              <button className="button secondary" onClick={closeModal}>Cancelar</button>
+              <button className="button" style={{background:'#eee',color:'#222',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer'}} onClick={closeModal}>Cancelar</button>
               <button
-                className="button success"
+                className="button confirmar"
                 onClick={confirmPayment}
-                // Só desabilita para dinheiro se valor recebido < total
                 disabled={
                   method === 'dinheiro' && (cashReceivedRaw.trim() !== '' && cashReceived < payingTotal)
                 }

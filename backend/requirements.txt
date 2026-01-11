@@ -1,3 +1,5 @@
+passlib>=1.7.4
+bcrypt==4.0.1
 fastapi==0.115.5
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
@@ -7,3 +9,5 @@ python-dotenv==1.0.1
 alembic==1.13.3
 # For Postgres (optional). Remove if not needed.
 psycopg2-binary==2.9.10
+python-jose==3.3.0
+passlib==1.7.4

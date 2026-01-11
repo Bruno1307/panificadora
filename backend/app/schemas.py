@@ -44,11 +44,14 @@ class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
     customer_name: Optional[str] = None
     table_ref: Optional[str] = None
+    order_number: Optional[int] = None  # preenchido pelo backend
+
 
 class Order(BaseModel):
     id: int
+    order_number: int
     items: List[OrderItem]
-    status: Literal['pending','paid','cancelled']
+    status: Literal['pending','paid','cancelled','comanda_aberta']
     created_at: Optional[datetime] = None
     customer_name: Optional[str] = None
     table_ref: Optional[str] = None
@@ -57,5 +60,7 @@ class Order(BaseModel):
     class Config:
         from_attributes = True
 
+
+# Schema para pagamento do pedido
 class PayOrder(BaseModel):
     method: str

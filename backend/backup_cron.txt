@@ -1,0 +1,5 @@
+# Para agendar backup diário às 12h (meio-dia) horário local, adicione esta linha ao seu crontab:
+0 12 * * * cd /home/bruno/Panificadora\ Jardim/padaria-pdv && bash backend/backup_db.sh >> backend/backups/backup_cron.log 2>&1
+
+# Para editar o crontab, execute:
+# crontab -e

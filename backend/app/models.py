@@ -39,7 +39,9 @@ class Product(Base):
 class Order(Base):
     __tablename__ = "orders"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_number: Mapped[int] = mapped_column(Integer, index=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+    # status: 'pending', 'paid', 'cancelled', 'comanda_aberta', etc.
     status: Mapped[str] = mapped_column(String(20), index=True, default="pending")
     customer_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     table_ref: Mapped[str | None] = mapped_column(String(30), nullable=True)

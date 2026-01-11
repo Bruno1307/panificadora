@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    container_name: padaria-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./backend/data.db:/app/data.db
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    container_name: padaria-frontend
+    ports:
+      - "5173:5173"
+    restart: always
+    volumes:
+      - ./frontend:/app
+    command: npm run dev:5173
+    environment:
+      - VITE_BACKEND_URL=http://backend:8000/
+    depends_on:
+      backend:
+        condition: service_healthy

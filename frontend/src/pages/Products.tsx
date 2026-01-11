@@ -40,7 +40,7 @@ export default function Products() {
   async function addProduct(e: React.FormEvent) {
     e.preventDefault()
     if (barcode && !isValidEAN13(barcode)) {
-      alert('Código EAN-13 inválido')
+      // TODO: Exibir mensagem amigável ao usuário
       return
     }
     await api.post('/products/', { name, price, barcode: barcode || null })
@@ -63,12 +63,12 @@ export default function Products() {
     newPriceStr = newPriceStr.replace(',', '.')
     const newPrice = parseFloat(newPriceStr)
     if (isNaN(newPrice) || newPrice <= 0) {
-      alert('Preço inválido! Informe um valor maior que zero. Ex: 0.50 ou 0,50')
+      // TODO: Exibir mensagem amigável ao usuário
       return
     }
     const newBarcode = prompt('Código de barras (opcional)', p.barcode ?? '')
     if ((newBarcode ?? '').trim() && !isValidEAN13(newBarcode!.trim())) {
-      alert('Código EAN-13 inválido')
+      // TODO: Exibir mensagem amigável ao usuário
       return
     }
     await api.put(`/products/${p.id}`, { name: newName, price: newPrice, barcode: (newBarcode ?? '') || null })
@@ -97,10 +97,10 @@ export default function Products() {
       </div>
       <div style={{marginBottom: 8, color: '#888'}}>Produtos encontrados: {products.length}</div>
       <ul className="list">
-        {products.map(p => (
+        {products.map((p, idx) => (
           <li key={p.id}>
             <div>
-              <strong>{p.name}</strong>
+              <strong>{idx + 1}. {p.name}</strong>
               <div className="item-meta">R$ {p.price.toFixed(2)} {p.barcode ? `· ${p.barcode}` : ''}</div>
             </div>
             <div style={{ display:'flex', gap:8 }}>
@@ -110,6 +110,7 @@ export default function Products() {
           </li>
         ))}
       </ul>
+      {/* Total dos produtos removido conforme solicitado */}
     </div>
   )
 }

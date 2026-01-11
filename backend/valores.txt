@@ -1,0 +1,48 @@
+Água 500ml,4.00
+Agua 1.5 L,5.00
+Suco 1L,20.00
+Suco 500ml,7.00
+Refrigerante lata,5.00
+Coca 1L,9.00
+Outros 1L,8.00
+Coca 2L,14.00
+Tuchaua 2L,12.00
+Baré 2L,11.00
+Nescalzinho,4.00
+Bolo G,20.00
+Bolo P,15.00
+Pão caseiro fatiado,5.00
+Café 100g,8.50
+Sonho recheado,3.00
+Sonho,1.50
+Pudim pequeno,10.00
+Pudim médio,15.00
+Fatia de bolo,10.00
+Fatia de Chocolate,7.00
+Creme de pote,10.00
+Pudim Fatia,6.00
+Pão de milho,4.50
+Pão trança,6.50
+Cuscuz temperado,7.00
+Tapioca com mantiga,4.00
+Tapioca com queijo,6.00
+Tapioca com queijo e presunto,8.00
+Tapioca completo,10.00
+Pão com manteiga,2.00
+Pão com queijo,7.00
+Pão com queijo e prensento,9.00
+Pão completo,12.00
+Pão de queijo pequeno,1.50
+Pão de queijo grande,2.50
+Café preto,4.00
+Café com leite,4.50
+Baguete completo,30.00
+Fatia de belo comum,4.00
+Empada,5.00
+Mini hambúrguer,6.00
+Torrada com orégano,7.00
+Leite camponesa 200g,10.00
+Brownie,7.00
+Fatia de pizza,7.00
+Foliado,6.00
+Salgado de Salsicha,5.00

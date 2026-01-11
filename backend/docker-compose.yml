@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  backend:
+    build: .
+    container_name: padaria-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./data.db:/app/data.db
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

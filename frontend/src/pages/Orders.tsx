@@ -26,7 +26,10 @@ export default function Orders() {
   async function load() {
     const prods = await api.get<Product[]>('/products/')
     setProducts(prods.data)
-    const ords = await api.get<Order[]>('/orders/pending')
+    // Adiciona o token JWT ao buscar pedidos pendentes
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const ords = await api.get<Order[]>('/orders/pending', { headers })
     setPending(ords.data)
   }
   useEffect(() => { load() }, [])
@@ -54,7 +57,7 @@ export default function Orders() {
       addToCart(data)
       setScanCode('')
     } catch (e) {
-      alert('Produto não encontrado para o código: ' + code)
+      // TODO: Exibir mensagem amigável ao usuário
     }
   }
 
@@ -84,12 +87,19 @@ export default function Orders() {
   }
 
   async function sendToCashier() {
-    if (cart.length === 0) return
-    await api.post('/orders/', { items: cart, customer_name: customerName || null, table_ref: tableRef || null })
-    setCart([])
-    setCustomerName('')
-    setTableRef('')
-    await load()
+    if (cart.length === 0) return;
+    // Recupera o token JWT do localStorage
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    await api.post(
+      '/orders/',
+      { items: cart, customer_name: customerName || null, table_ref: tableRef || null },
+      { headers }
+    );
+    setCart([]);
+    setCustomerName('');
+    setTableRef('');
+    await load();
   }
 
   // Receber/Cancelar removidos do dispositivo móvel; ações apenas no Caixa
@@ -200,7 +210,7 @@ export default function Orders() {
             <li key={o.id}>
               <div>
                 <strong>#{o.id}</strong>
-                <div className="item-meta">{o.customer_name || 'Sem nome'} · {o.table_ref || 'Sem mesa'} · Itens: {o.items.length}</div>
+                <div className="item-meta">{o.customer_name || 'Sem nome'} · {o.table_ref || 'Sem mesa'} · Itens: {o.items.length} · {o.created_at ? new Date(o.created_at.replace(' ', 'T') + 'Z').toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}</div>
               </div>
               <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 <span>R$ {orderTotal(o).toFixed(2)}</span>

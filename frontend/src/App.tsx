@@ -5,93 +5,111 @@ import Cashier from './pages/Cashier'
 import Receipt from './pages/Receipt'
 import Logo from './components/Logo'
 import Balcao from './pages/Balcao'
+import Indicators from './pages/Indicators'
+// ...existing code...
 import Login from './pages/Login'
 import React, { useState } from 'react';
+import { ToastProvider } from './components/Toast';
+
+import ComandaAberta from './pages/ComandaAberta';
 
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   // Autenticação simples: token e perfil no localStorage
+  // Persistir autenticação após atualizar a página
   const [token, setToken] = useState(() => localStorage.getItem('token') || '');
   const [role, setRole] = useState(() => localStorage.getItem('role') || '');
+  // Tema fixo claro
+  React.useEffect(() => {
+    // Tema escuro removido, sempre tema claro
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.removeItem('theme');
+  }, []);
 
   function handleLogin(token: string, role: string) {
     setToken(token);
     setRole(role);
     localStorage.setItem('token', token);
     localStorage.setItem('role', role);
-    if (role === 'caixa') {
-      navigate('/cashier');
-    } else {
-      navigate('/');
-    }
+    navigate('/'); // Sempre vai para a tela principal, mostrando o menu
   }
   function handleLogout() {
     setToken('');
     setRole('');
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
-  // Se não autenticado, mostrar tela de login (exceto /balcao)
-  if (!token && location.pathname !== '/balcao') {
-    return <Login onLogin={handleLogin} />;
-  }
-  // Se estiver na rota do balconista, renderiza só a página do balcão
-  if (location.pathname === '/balcao') {
-    return <Balcao />;
-  }
-  // theme toggle
-  const [theme, setTheme] = ((): ["dark"|"light", (t:"dark"|"light")=>void] => {
-    const saved = (typeof window !== 'undefined' && localStorage.getItem('theme')) as any
-    let initial = saved as "dark"|"light" | null
-    if (!initial && typeof window !== 'undefined') {
-      const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-      initial = prefersLight ? 'light' : 'dark'
+  // Se não autenticado, redireciona para /login (exceto /balcao)
+  React.useEffect(() => {
+    if (!token && location.pathname !== '/balcao' && location.pathname !== '/login') {
+      navigate('/login', { replace: true });
     }
-    initial = initial || 'dark'
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', initial)
+  }, [token, location.pathname, navigate]);
+  // Redirecionamentos centralizados em useEffect
+  React.useEffect(() => {
+    if (!token && location.pathname !== '/login') {
+      navigate('/login', { replace: true });
+    } else if (token && location.pathname === '/login') {
+      navigate('/');
+    } else if (role === 'balconista' && location.pathname === '/') {
+      navigate('/comanda-aberta', { replace: true });
+    } else if (role === 'caixa' && location.pathname === '/') {
+      navigate('/cashier', { replace: true });
     }
-    const setter = (t: any) => {
-      localStorage.setItem('theme', t)
-      document.documentElement.setAttribute('data-theme', t)
-    }
-    return [initial, setter]
-  })()
+  }, [token, role, location.pathname, navigate]);
+
   // Controle de rotas por perfil
+  const isGerente = role === 'gerente' || role === 'admin';
   const canSee = (route: string) => {
-    if (role === 'gerente') return true;
+    if (isGerente) return true;
     if (role === 'caixa') return route === '/orders' || route === '/cashier' || route === '/receipt/:id';
-    if (role === 'balconista') return route === '/balcao';
+    if (role === 'balconista') return route === '/balcao' || route === '/comanda-aberta';
     return false;
   };
+
+  // Renderização condicional apenas do conteúdo
   return (
-    <div className="app">
-      <div className="brand">
-        <Logo />
-        <h1>Panificadora Jardim</h1>
-        <div style={{ marginLeft: 'auto' }}>
-          <button className="button secondary" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            Tema: {theme === 'dark' ? 'Escuro' : 'Claro'}
-          </button>
-          {token && <button className="button danger" style={{ marginLeft: 8 }} onClick={handleLogout}>Sair</button>}
+    <ToastProvider>
+      <div className="app">
+        <div className="brand">
+          <Logo />
+          <h1>Panificadora Jardim</h1>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Botão de tema removido */}
+            {token && <button className="button danger" style={{ marginLeft: 8 }} onClick={handleLogout}>Sair</button>}
+          </div>
         </div>
+        {token ? (
+          <>
+            <nav className="nav">
+              {isGerente && <Link to="/">Produtos</Link>}
+              {(isGerente || role === 'caixa') && <Link to="/orders">Pedidos</Link>}
+              {(isGerente || role === 'caixa') && <Link to="/cashier">Caixa</Link>}
+              {isGerente && <Link to="/indicators">Indicadores</Link>}
+            </nav>
+            <Routes>
+              {isGerente && <Route path="/" element={<Products />} />}
+              {(isGerente || role === 'caixa') && <Route path="/orders" element={<Orders />} />}
+              {(isGerente || role === 'caixa') && <Route path="/cashier" element={<Cashier />} />}
+              {(isGerente || role === 'caixa') && <Route path="/receipt/:id" element={<Receipt />} />}
+              {isGerente && <Route path="/indicators" element={<Indicators />} />}
+              <Route path="/balcao" element={<Balcao />} />
+              <Route path="/comanda-aberta" element={<ComandaAberta />} />
+              <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            </Routes>
+          </>
+        ) : (
+          <Routes>
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="*" element={<Login onLogin={handleLogin} />} />
+          </Routes>
+        )}
       </div>
-      <nav className="nav">
-        {role === 'gerente' && <Link to="/">Produtos</Link>}
-        {(role === 'gerente' || role === 'caixa') && <Link to="/orders">Pedidos</Link>}
-        {(role === 'gerente' || role === 'caixa') && <Link to="/cashier">Caixa</Link>}
-      </nav>
-      <Routes>
-        {role === 'gerente' && <Route path="/" element={<Products />} />}
-        {(role === 'gerente' || role === 'caixa') && <Route path="/orders" element={<Orders />} />}
-        {(role === 'gerente' || role === 'caixa') && <Route path="/cashier" element={<Cashier />} />}
-        {(role === 'gerente' || role === 'caixa') && <Route path="/receipt/:id" element={<Receipt />} />}
-        <Route path="/balcao" element={<Balcao />} />
-        <Route path="/login" element={<Login onLogin={handleLogin} />} />
-      </Routes>
-    </div>
-  )
+    </ToastProvider>
+  );
 }
+
+

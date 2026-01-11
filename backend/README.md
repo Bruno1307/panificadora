@@ -36,3 +36,48 @@ Campos do pedido no retorno: `id`, `status`, `created_at`, `items` (cada item co
 rm backend/data.db  # cuidado: remove todos os dados
 ```
 Em produção, use Alembic para migrações.
+
+## Como evoluir o banco de dados sem perder dados (usando Alembic)
+
+1. **Crie uma nova migração sempre que mudar models.py**
+   ```bash
+   cd backend
+   source ../.venv/bin/activate
+   alembic revision --autogenerate -m "Descreva a mudança"
+   ```
+2. **Revise o arquivo gerado em `backend/alembic/versions/`**
+   - Confirme se as alterações refletem o que você espera.
+3. **Aplique a migração ao banco**
+   ```bash
+   alembic upgrade head
+   ```
+4. **Nunca apague ou sobrescreva o arquivo `data.db` manualmente.**
+   - Use sempre as migrações para alterar o schema.
+5. **Faça backup do banco antes de grandes mudanças.**
+   ```bash
+   cp backend/data.db backend/backups/data.db.bak.$(date +%Y%m%d-%H%M%S)
+   ```
+
+Assim, você pode evoluir o sistema sem perder dados importantes.
+
+## Exemplo prático: adicionando uma coluna com Alembic
+
+Suponha que você queira adicionar a coluna `descricao` em `Product`:
+
+1. Edite `backend/app/models.py` e adicione:
+   ```python
+   class Product(Base):
+       # ...existing code...
+       descricao: Mapped[str | None] = mapped_column(String(255), nullable=True)
+   ```
+2. Gere a migração:
+   ```bash
+   cd backend
+   alembic revision --autogenerate -m "Adiciona coluna descricao em Product"
+   ```
+3. Revise o arquivo gerado em `backend/alembic/versions/` (deve conter algo como `op.add_column('products', sa.Column('descricao', sa.String(length=255), nullable=True))`).
+4. Aplique a migração:
+   ```bash
+   alembic upgrade head
+   ```
+5. Pronto! A coluna foi adicionada sem perder nenhum dado existente.

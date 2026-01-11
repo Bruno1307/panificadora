@@ -13,12 +13,11 @@ export default function EditOrderModal({ onClose, children, escEnabled }: { onCl
   }, [onClose, escEnabled]);
 
   return (
-    <div
-      ref={ref}
-      className="card"
-      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:1000 }}
-    >
-      {children}
+    <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ position:'absolute', inset:0, background:'transparent' }} />
+      <div ref={ref} className="card" style={{ position:'relative', width:'100%', maxWidth:600, maxHeight:'90vh', overflow:'auto', borderRadius:12, boxShadow:'none', border:'none', padding:16, background: 'var(--card)' }}>
+        {children}
+      </div>
     </div>
   );
 }

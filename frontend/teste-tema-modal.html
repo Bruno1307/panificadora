@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste Tema Modal</title>
+  <style>
+    :root {
+      --card: #171a35;
+      --text: #e6e8ff;
+    }
+    [data-theme="light"] {
+      --card: #fff;
+      --text: #1b1e2b;
+    }
+    body {
+      background: var(--card);
+      color: var(--text);
+      transition: background 0.3s;
+    }
+    .card {
+      background: var(--card) !important;
+      color: var(--text);
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      padding: 24px;
+      margin: 40px auto;
+      max-width: 600px;
+    }
+    .card * {
+      background: var(--card) !important;
+      color: var(--text);
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      margin: 8px;
+    }
+  </style>
+</head>
+<body>
+  <button class="btn" onclick="document.body.setAttribute('data-theme', 'light')">Tema Claro</button>
+  <button class="btn" onclick="document.body.removeAttribute('data-theme')">Tema Escuro</button>
+  <div class="card">
+    <h2>Modal Teste</h2>
+    <input type="text" placeholder="Teste input" />
+    <ul>
+      <li>Item 1</li>
+      <li>Item 2</li>
+    </ul>
+    <button class="btn">Botão</button>
+  </div>
+</body>
+</html>
