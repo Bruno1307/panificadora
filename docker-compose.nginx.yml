@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx-proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  backend:
+    image: padaria-backend:latest # ou use o build do seu backend
+    container_name: padaria-backend
+    ports:
+      - "8000:8000"
+    # ...outras configurações do backend

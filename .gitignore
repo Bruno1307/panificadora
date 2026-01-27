@@ -1,0 +1,98 @@
+# .gitignore sugerido para seu projeto
+
+# Ambientes virtuais Python
+backend/venv/
+backend/.venv/
+frontend/venv/
+frontend/.venv/
+.venv/
+venv/
+
+# Arquivos de cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Banco de dados e backups
+backend/data.db*
+backend/backups/
+*.bak
+*.db
+
+# Node modules
+frontend/node_modules/
+
+# Build e dependências do frontend
+frontend/dist/
+
+# Arquivos de configuração locais
+.env
+*.env
+
+# Logs
+*.log
+
+# Outros arquivos temporários
+*.swp
+*.swo
+.DS_Store
+
+# Arquivos de teste e temporários
+*.test.tsx
+
+# Ignorar arquivos de configuração pessoais
+*.local
+
+# Docker
+*.pid
+
+# Ignorar arquivos de output do script de automação
+run_backend_tests.sh
+automatiza_migracao.sh
+CHECKLIST_MIGRACAO_MAQUINA.md
+
+# Permitir arquivos importantes
+!backend/requirements.txt
+!frontend/package.json
+!frontend/tsconfig.json
+!frontend/vite.config.ts
+!nginx.conf
+!docker-compose.yml
+!docker-compose.nginx.yml
+!Makefile
+!README.md
+!README_*.md
+!PASSO_A_PASSO_ATUALIZACAO.md
+!PDV_PanificadoraJardim_Vantagens.md
+!backend/alembic.ini
+!backend/README.md
+!backend/alembic/
+!backend/app/
+!backend/scripts/
+!backend/tests/
+!backend/restore_db.sh
+!backend/backup_db.sh
+!backend/setup_env.sh
+!backend/run_pytest.sh
+!backend/create_admin_user.py
+!backend/create_default_users.py
+!backend/create_order_test.py
+!backend/create_users.py
+!backend/check_admin_user.py
+!backend/check_users.py
+!backend/corrige_precos.py
+!backend/delete_all_users.py
+!backend/import_products.py
+!backend/import_valores.py
+!backend/reset_all_passwords.py
+!backend/reset_caixa_password.py
+!backend/test_balconista_password.py
+!backend/test_listar_pedidos.py
+!backend/test_pedido.py
+!backend/test_verify_balcao.py
+!backend/add_barcode_column.sql
+!backend/valores.txt
+!backend/backup_cron.txt
+!backend/requests/
+!backend/requests/20260106_add_order_number.sql
