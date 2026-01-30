@@ -1,15 +1,16 @@
+import { useToast } from '../components/Toast';
 // ...existing code...
 import { useEffect, useMemo, useState } from 'react';
 import EditOrderModal from './EditOrderModal';
-// @ts-ignore
-import { api } from '../api';
+// import { api } from '../api';
+import { getApi } from '../api';
 import { connectOrdersWS } from '../ws';
 import QRCode from 'react-qr-code';
 import { QrCodePix } from 'qrcode-pix';
 
 // Tipos básicos
 type Product = { id: number; name: string; price: number };
-type OrderItem = { product_id: number; quantity: number };
+type OrderItem = { product_id: number; quantity: number; unit_price?: number };
 type Order = {
   id: number;
   order_number?: number;
@@ -30,11 +31,12 @@ function total(order: Order, products: Product[] = []): number {
 
 export default function Cashier() {
   // ...existing code...
+  const { showToast } = useToast();
   // Função para imprimir recibo em PDF
   function imprimirRecibo(orderId: number) {
     const order = orders.find(o => o.id === orderId);
     if (!order) {
-      // TODO: Exibir mensagem amigável ao usuário
+      showToast('Pedido não encontrado.', 'error');
       return;
     }
     const pagamentoLabels: Record<string, string> = { 'dinheiro': 'Dinheiro', 'pix': 'Pix', 'débito': 'Débito', 'credito': 'Crédito', 'crédito': 'Crédito' };
@@ -49,7 +51,7 @@ export default function Cashier() {
           <div style='text-align:left;'>Pagamento: ${pagamentoLabels[order.payment_method as string] || order.payment_method || '-'} ${dataAtual}</div>
           <hr style='margin:14px 0' />
           <div style='text-align:left;'>
-            ${order.items.map((it: any) => {
+            ${order.items.map((it) => {
               const prod = products.find((p: Product) => p.id === it.product_id);
               const name = prod?.name || `Item ${it.product_id}`;
               const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
@@ -58,7 +60,7 @@ export default function Cashier() {
             }).join('')}
           </div>
           <hr style='margin:14px 0' />
-          <div style='display:flex;justify-content:space-between;font-weight:700;font-size:22px;margin-top:12px;'><span>Total da compra</span><span>R$ ${order.items.reduce((s: number, it: any) => {
+          <div style='display:flex;justify-content:space-between;font-weight:700;font-size:22px;margin-top:12px;'><span>Total da compra</span><span>R$ ${order.items.reduce((s: number, it) => {
             const prod = products.find((p: Product) => p.id === it.product_id);
             const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
             return s + unitPrice * it.quantity;
@@ -66,30 +68,41 @@ export default function Cashier() {
         </div>
       </div>
     `;
+    // Definição de tipo para window.html2pdf
+    interface HTML2PDF {
+      (): any;
+      set: (opts: any) => HTML2PDF;
+      from: (html: string) => HTML2PDF;
+      save: () => void;
+    }
+    declare global {
+      interface Window {
+        html2pdf?: () => HTML2PDF;
+      }
+    }
     function gerarPDF() {
       try {
         if (!window.html2pdf) {
-          // TODO: Exibir mensagem amigável ao usuário
+          showToast('Atenção: não foi possível gerar o PDF. Tente recarregar a página.', 'error');
           console.error('window.html2pdf não está disponível!');
           return;
         }
-        // @ts-ignore
         window.html2pdf().set({ filename: `recibo-pedido-${order.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
       } catch (e) {
-        // TODO: Exibir mensagem amigável ao usuário
+        showToast('Erro ao gerar PDF do recibo. Tente novamente ou verifique se o navegador permite downloads automáticos.', 'error');
         console.error('Erro ao gerar PDF:', e);
       }
     }
     if (!window.html2pdf) {
-      // TODO: Exibir mensagem amigável ao usuário
+      showToast('Carregando biblioteca de PDF, aguarde...', 'info');
       const script = document.createElement('script');
       script.src = '/html2pdf.bundle.min.js';
       script.onload = () => {
-        // TODO: Exibir mensagem amigável ao usuário
+        showToast('Biblioteca html2pdf carregada! Tentando gerar PDF...', 'info');
         gerarPDF();
       };
       script.onerror = () => {
-        // TODO: Exibir mensagem amigável ao usuário
+        showToast('Erro ao carregar a biblioteca de PDF. Verifique sua conexão ou recarregue a página.', 'error');
         console.error('Erro ao carregar /html2pdf.bundle.min.js');
       };
       document.body.appendChild(script);
@@ -126,13 +139,13 @@ function total(order: Order, products: Product[] = []): number {
         const pagamentoLabels: Record<string, string> = { 'dinheiro': 'Dinheiro', 'pix': 'Pix', 'débito': 'Débito', 'credito': 'Crédito', 'crédito': 'Crédito' };
         // Cria HTML do recibo
         // Corrigir valores zerados usando o preço do produto se unit_price for 0
-        const htmlItens = order.items.map((it: any) => {
+        const htmlItens = order.items.map((it) => {
           const prod = products.find((p: Product) => p.id === it.product_id);
           const name = prod?.name || `Item ${it.product_id}`;
           const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
           return `<div style='display:flex;justify-content:space-between'><span>${name} x${it.quantity}</span><span>R$ ${(unitPrice * it.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>`;
         }).join('');
-        const total = order.items.reduce((s: number, it: any) => {
+        const total = order.items.reduce((s: number, it) => {
           const prod = products.find((p: Product) => p.id === it.product_id);
           const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
           return s + unitPrice * it.quantity;
@@ -228,11 +241,12 @@ function total(order: Order, products: Product[] = []): number {
   // Carregar pedidos e produtos
   async function load() {
     // Monta params apenas com filtros preenchidos
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (status) params.status = status;
     if (q) params.q = q;
     if (start) params.start = start;
     if (end) params.end = end;
+    const api = await getApi();
     const resOrders = await api.get('/orders', { params });
     setOrders(resOrders.data || []);
     const resProducts = await api.get('/products');
@@ -268,11 +282,8 @@ function total(order: Order, products: Product[] = []): number {
     setEditingOrder(order);
     setEditCustomer(order.customer_name || '');
     setEditTable(order.table_ref || '');
-    // Ao editar, inicializa editItems com todos os produtos do catálogo, usando a quantidade do pedido (ou zero)
-    setEditItems(products.map(p => {
-      const found = order.items.find(i => i.product_id === p.id);
-      return { product_id: p.id, quantity: found ? found.quantity : 0 };
-    }));
+    // Ao editar, inicializa editItems apenas com os itens do pedido
+    setEditItems(order.items.map(i => ({ product_id: i.product_id, quantity: i.quantity })));
   }
   function closeEditModal() {
     setEditingOrder(null);
@@ -302,14 +313,26 @@ function total(order: Order, products: Product[] = []): number {
   async function saveEditOrder() {
     if (!editingOrder) return;
     // Só envia produtos com quantidade > 0
-    const itemsToSend = editItems.filter(i => i.quantity > 0);
-    await api.put(`/orders/${editingOrder.id}`, {
-      customer_name: editCustomer,
-      table_ref: editTable,
-      items: itemsToSend,
-    });
-    closeEditModal();
-    await load();
+    const itemsToSend = editItems.filter(i => i.quantity > 0 && i.product_id);
+    if (itemsToSend.length === 0) {
+      showToast('Adicione ao menos um produto ao pedido.', 'error');
+      return;
+    }
+    try {
+      const api = await getApi();
+      await api.put(`/orders/${editingOrder.id}`, {
+        customer_name: editCustomer,
+        table_ref: editTable,
+        items: itemsToSend,
+      });
+      closeEditModal();
+      await load();
+      showToast('Pedido editado com sucesso!', 'success');
+    } catch (err: any) {
+      let msg = 'Erro ao salvar edição.';
+      if (err?.response?.data?.detail) msg += ' ' + err.response.data.detail;
+      showToast(msg, 'error');
+    }
   }
 
   // Pagamento
@@ -328,6 +351,7 @@ function total(order: Order, products: Product[] = []): number {
   }
 
   async function cancel(orderId: number) {
+    const api = await getApi();
     await api.post(`/orders/${orderId}/cancel`, {}, {
       headers: cashierToken ? { 'X-Cashier-Token': cashierToken } : undefined,
     })
@@ -342,6 +366,7 @@ function total(order: Order, products: Product[] = []): number {
     // Se o token estiver vazio, não envia o header
     const headers = cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
     console.log('Enviando pagamento com token:', cashierToken);
+    const api = await getApi();
     await api.post(
       `/orders/${payingOrder.id}/pay`,
       { method },
@@ -422,7 +447,7 @@ function total(order: Order, products: Product[] = []): number {
     <div className="card">
       <h2>Caixa</h2>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-        <select className="select" value={status} onChange={e=>setStatus(e.target.value as any)}>
+        <select className="select" value={status} onChange={e=>setStatus(e.target.value as string)}>
           <option value="">Todos</option>
           <option value="pending">Pendente</option>
           <option value="paid">Pago</option>
@@ -438,9 +463,9 @@ function total(order: Order, products: Product[] = []): number {
           <input className="input" type="date" value={end} onChange={e=>setEnd(e.target.value)} />
         </label>
         <button className="button" onClick={load}>Atualizar</button>
-        <div style={{ marginLeft: 'auto' }}>
+        {/* <div style={{ marginLeft: 'auto' }}>
           <strong>Total: R$ {sums.total.toFixed(2)}</strong> — Pedidos: {sums.count}
-        </div>
+        </div> */}
         <div style={{ display:'flex', gap:8, alignItems:'center', marginLeft: 'auto' }}>
           <input className="input" placeholder="Token do caixa" value={cashierToken} readOnly style={{ width: 220 }} />
           <input className="input" placeholder="Chave Pix (CNPJ, email, etc)" value={pixKey} readOnly style={{ width: 220 }} />

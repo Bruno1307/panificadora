@@ -1,19 +1,39 @@
-import axios from 'axios'
 
-// Prefer env var, fallback to current host on port 8000
+import axios from 'axios';
 
-// Usa o nome do serviço Docker para acesso ao backend quando em ambiente Docker
-const baseURL = import.meta.env.VITE_BACKEND_URL || 'http://backend:8000/'
+let api: ReturnType<typeof axios.create>;
+let configPromise: Promise<{DOMAIN_URL?: string, BACKEND_URL: string}> | null = null;
+let domainUrl: string | undefined;
 
-
-export const api = axios.create({ baseURL })
-
-// Interceptor para enviar o token JWT salvo no localStorage
-api.interceptors.request.use((config) => {
-	const token = localStorage.getItem('token');
-	if (token) {
-		config.headers = config.headers || {};
-		config.headers['Authorization'] = `Bearer ${token}`;
+async function loadConfig() {
+	if (api) return;
+	if (!configPromise) {
+		configPromise = Promise.all([
+			fetch('/config.json').then((res) => res.json()),
+			fetch('/config-domain.json').then((res) => res.json()).catch(() => ({}))
+		]).then(([config, domainConfig]) => {
+			api = axios.create({ baseURL: config.BACKEND_URL });
+			api.interceptors.request.use((cfg) => {
+				const token = localStorage.getItem('token');
+				if (token) {
+					cfg.headers = cfg.headers || {};
+					cfg.headers['Authorization'] = `Bearer ${token}`;
+				}
+				return cfg;
+			});
+			domainUrl = domainConfig.DOMAIN_URL;
+			return {DOMAIN_URL: domainUrl, BACKEND_URL: config.BACKEND_URL};
+		});
 	}
-	return config;
-});
+	await configPromise;
+}
+
+export async function getApi() {
+	await loadConfig();
+	return api;
+}
+
+export async function getDomainUrl() {
+	const config = await configPromise;
+	return config?.DOMAIN_URL;
+}

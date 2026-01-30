@@ -1,5 +1,6 @@
+import { useToast } from '../components/Toast';
 import { useEffect, useRef, useState } from 'react'
-import { api } from '../api'
+import { getApi } from '../api'
 import { connectOrdersWS } from '../ws'
 
 type Product = { id: number; name: string; price: number; barcode?: string | null }
@@ -24,6 +25,7 @@ export default function Orders() {
   const scanInputRef = useRef<HTMLInputElement | null>(null)
 
   async function load() {
+    const api = await getApi();
     const prods = await api.get<Product[]>('/products/')
     setProducts(prods.data)
     // Adiciona o token JWT ao buscar pedidos pendentes
@@ -34,8 +36,13 @@ export default function Orders() {
   }
   useEffect(() => { load() }, [])
   useEffect(() => {
-    const ws = connectOrdersWS(() => load())
-    return () => ws.close()
+    let ws: WebSocket | null = null;
+    (async () => {
+      ws = await connectOrdersWS(() => load());
+    })();
+    return () => {
+      if (ws && ws.readyState === 1) ws.close();
+    };
   }, [])
 
   useEffect(() => {
@@ -53,11 +60,13 @@ export default function Orders() {
     const code = scanCode.trim()
     if (!code) return
     try {
+      const api = await getApi();
       const { data } = await api.get<Product>(`/products/by-barcode/${encodeURIComponent(code)}`)
       addToCart(data)
       setScanCode('')
     } catch (e) {
-      // TODO: Exibir mensagem amigável ao usuário
+      const { showToast } = useToast();
+      showToast('Produto não encontrado para o código: ' + code, 'error');
     }
   }
 
@@ -91,6 +100,7 @@ export default function Orders() {
     // Recupera o token JWT do localStorage
     const token = localStorage.getItem('token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const api = await getApi();
     await api.post(
       '/orders/',
       { items: cart, customer_name: customerName || null, table_ref: tableRef || null },

@@ -1,10 +1,12 @@
+import { useToast } from '../components/Toast';
 import { useEffect, useState } from 'react'
-import { api } from '../api'
+import { getApi } from '../api'
 
 type Product = { id: number; name: string; price: number; barcode?: string | null }
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
+  const { showToast } = useToast();
   const [name, setName] = useState('Pão francês')
   const [price, setPrice] = useState(1.0)
   const [barcode, setBarcode] = useState('')
@@ -27,7 +29,8 @@ export default function Products() {
   }
 
   async function load() {
-    const { data } = await api.get<Product[]>('/products/', {
+      const api = await getApi();
+      const { data } = await api.get<Product[]>('/products/', {
       params: {
         q: searchQ || undefined,
         barcode: searchBarcode || undefined,
@@ -40,9 +43,10 @@ export default function Products() {
   async function addProduct(e: React.FormEvent) {
     e.preventDefault()
     if (barcode && !isValidEAN13(barcode)) {
-      // TODO: Exibir mensagem amigável ao usuário
-      return
+      showToast('Código EAN-13 inválido', 'error');
+      return;
     }
+    const api = await getApi();
     await api.post('/products/', { name, price, barcode: barcode || null })
     setName('')
     setPrice(1)
@@ -51,6 +55,7 @@ export default function Products() {
   }
 
   async function removeProduct(id: number) {
+    const api = await getApi();
     await api.delete(`/products/${id}`)
     await load()
   }
@@ -63,14 +68,15 @@ export default function Products() {
     newPriceStr = newPriceStr.replace(',', '.')
     const newPrice = parseFloat(newPriceStr)
     if (isNaN(newPrice) || newPrice <= 0) {
-      // TODO: Exibir mensagem amigável ao usuário
-      return
+      showToast('Preço inválido! Informe um valor maior que zero. Ex: 0.50 ou 0,50', 'error');
+      return;
     }
     const newBarcode = prompt('Código de barras (opcional)', p.barcode ?? '')
     if ((newBarcode ?? '').trim() && !isValidEAN13(newBarcode!.trim())) {
-      // TODO: Exibir mensagem amigável ao usuário
-      return
+      showToast('Código EAN-13 inválido', 'error');
+      return;
     }
+    const api = await getApi();
     await api.put(`/products/${p.id}`, { name: newName, price: newPrice, barcode: (newBarcode ?? '') || null })
     await load()
   }

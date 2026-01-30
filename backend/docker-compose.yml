@@ -1,6 +1,7 @@
 version: '3.8'
 services:
   backend:
+    restart: always
     build: .
     container_name: padaria-backend
     ports:
@@ -10,7 +11,6 @@ services:
       - ./data.db:/app/data.db
     environment:
       - PYTHONUNBUFFERED=1
-    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s

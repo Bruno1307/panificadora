@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../api';
+import { getApi } from '../api';
 
 type RevenueData = {
   daily: number;
@@ -19,24 +19,24 @@ export default function Indicators() {
   const [start, setStart] = useState<string>('');
   const [end, setEnd] = useState<string>('');
 
-  function fetchIndicators(startDate?: string, endDate?: string) {
+  async function fetchIndicators(startDate?: string, endDate?: string) {
     setLoading(true);
     setError('');
     setData(null); // Limpa o estado antes de buscar
-    api.get('/indicators/revenue', {
-      params: {
-        ...(startDate ? { start: startDate } : {}),
-        ...(endDate ? { end: endDate } : {}),
-      }
-    })
-      .then(res => {
-        setData(res.data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Erro ao buscar dados de faturamento.');
-        setLoading(false);
+    try {
+      const api = await getApi();
+      const res = await api.get('/indicators/revenue', {
+        params: {
+          ...(startDate ? { start: startDate } : {}),
+          ...(endDate ? { end: endDate } : {}),
+        }
       });
+      setData(res.data);
+    } catch {
+      setError('Erro ao buscar dados de faturamento.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   React.useEffect(() => {

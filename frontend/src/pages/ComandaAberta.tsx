@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import AdicionarItem from './AdicionarItem'
-import { api } from '../api'
+import { getApi } from '../api'
 import Balcao from './Balcao'
 
 // Types (should match backend)
@@ -43,6 +43,7 @@ export default function ComandaAberta() {
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const api = await getApi();
       const { data } = await api.get('/comandas/abertas', { headers });
       setComandas(data);
     } catch (e) {
@@ -53,6 +54,7 @@ export default function ComandaAberta() {
   }
   async function loadProdutos() {
     try {
+      const api = await getApi();
       const { data } = await api.get('/products/');
       setProdutos(data);
     } catch (e) {
@@ -65,41 +67,50 @@ export default function ComandaAberta() {
 
 
 
-  async function abrirComanda(e:any) {
+  async function abrirComanda(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setNovaLoading(true)
     setMsg('')
     try {
+      const api = await getApi();
       await api.post('/comandas/abrir', { customer_name: cliente, table_ref: mesa, items: [] })
       setShowNova(false); setCliente(''); setMesa('');
       loadComandas()
-    } catch (e:any) {
-      setMsg(e?.response?.data?.detail || 'Erro ao abrir comanda')
+    } catch (e) {
+      const errorMsg = (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data)
+        ? (e as any).response.data.detail
+        : (e instanceof Error ? e.message : String(e));
+      setMsg(errorMsg || 'Erro ao abrir comanda');
     } finally { setNovaLoading(false) }
   }
   async function adicionarItem(comandaId:number) {
     if (!produtoId || !qtd) return;
     setMsg('')
     try {
+      const api = await getApi();
       await api.post(`/comandas/${comandaId}/adicionar_item`, { product_id: Number(produtoId), quantity: Number(qtd) })
       setProdutoId(''); setQtd(1); setComandaSel(null); loadComandas()
-    } catch (e:any) {
-      setMsg(e?.response?.data?.detail || 'Erro ao adicionar item')
+    } catch (e) {
+      const errorMsg = (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data)
+        ? (e as any).response.data.detail
+        : (e instanceof Error ? e.message : String(e));
+      setMsg(errorMsg || 'Erro ao adicionar item');
     }
   }
   async function fecharComanda(comandaId:number) {
     setMsg('')
     try {
+      const api = await getApi();
       await api.post(`/comandas/${comandaId}/fechar`, {})
       setMsg('Comanda fechada com sucesso!')
       loadComandas()
-    } catch (e:any) {
-      if (e?.response?.data?.detail) {
-        setMsg('Erro ao fechar comanda: ' + e.response.data.detail)
-      } else if (e?.message) {
-        setMsg('Erro ao fechar comanda: ' + e.message)
+    } catch (e) {
+      if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data) {
+        setMsg('Erro ao fechar comanda: ' + (e as any).response.data.detail);
+      } else if (e instanceof Error && e.message) {
+        setMsg('Erro ao fechar comanda: ' + e.message);
       } else {
-        setMsg('Erro ao fechar comanda desconhecido')
+        setMsg('Erro ao fechar comanda desconhecido');
       }
     }
   }
@@ -149,7 +160,6 @@ export default function ComandaAberta() {
                   <th style={{padding:'12px 8px'}}>Valor</th>
                   <th style={{padding:'12px 8px'}}>Aberta em</th>
                   <th style={{padding:'12px 8px'}}>Status</th>
-                  <th style={{padding:'12px 8px'}}>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,9 +176,16 @@ export default function ComandaAberta() {
                         <td style={{padding:'10px 8px'}}>{c.items && c.items.length > 0 ? c.items.reduce((s, it) => s + (it.unit_price || 0) * (it.quantity || 0), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00'}</td>
                         <td style={{padding:'10px 8px'}}>{c.created_at ? new Date(c.created_at.replace(' ', 'T') + 'Z').toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}</td>
                         <td style={{padding:'10px 8px'}}>{c.status === 'comanda_aberta' ? <span style={{color:'#22c55e', fontWeight:600}}>Aberta</span> : c.status}</td>
-                        <td style={{padding:'10px 8px'}}>
-                          <button className="button primary" style={{marginRight:8, padding:'6px 14px', borderRadius:6, fontSize:16}} onClick={()=>setComandaSel(c.id)}>Adicionar item</button>
-                          <button className="button danger" style={{padding:'6px 14px', borderRadius:6, fontSize:16}} onClick={()=>fecharComanda(c.id)}>Fechar</button>
+                      </tr>
+                    );
+                    // Nova linha para ações
+                    rows.push(
+                      <tr key={c.id+"-acoes"}>
+                        <td colSpan={7} style={{padding:'8px 24px', background:'#f9fafb'}}>
+                          <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                            <button className="button primary" style={{marginRight:8, padding:'10px 24px', borderRadius:8, fontSize:18}} onClick={()=>setComandaSel(c.id)}>Adicionar item</button>
+                            <button className="button danger" style={{padding:'10px 24px', borderRadius:8, fontSize:18}} onClick={()=>fecharComanda(c.id)}>Fechar</button>
+                          </div>
                           {comandaSel===c.id && (
                             <AdicionarItem
                               produtos={produtos}

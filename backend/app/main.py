@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db import engine, Base
 from .routers import products, orders, auth
+from .routers import voice
 from .ws import manager
 from contextlib import asynccontextmanager
 
@@ -16,8 +17,17 @@ print('>>> CRIANDO TABELAS NO BANCO DE DADOS <<<')
 async def lifespan(app: FastAPI):
     # Load .env from backend folder
     env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    print('>>> Carregando .env:', env_path)
     load_dotenv(env_path)
-    Base.metadata.create_all(bind=engine)
+    import traceback
+    print('>>> Antes de criar tabelas')
+    try:
+        Base.metadata.create_all(bind=engine)
+        print('>>> Tabelas criadas com sucesso')
+    except Exception as e:
+        print('>>> ERRO ao criar tabelas:', e)
+        traceback.print_exc()
+    print('>>> Após tentativa de criar tabelas')
     yield
 
 app = FastAPI(title="Panificadora Jardim API", lifespan=lifespan)
@@ -50,13 +60,14 @@ async def get_config():
 
 
 
-from .routers import indicators, comandas, test_password
+from .routers import indicators, comandas
 app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(auth.router)
 app.include_router(indicators.router)
 app.include_router(comandas.router)
-app.include_router(test_password.router)
+
+app.include_router(voice.router)
 
 
 @app.websocket("/ws")

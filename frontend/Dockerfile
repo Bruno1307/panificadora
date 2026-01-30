@@ -5,8 +5,11 @@ WORKDIR /app
 
 COPY . /app
 
-RUN npm install
+RUN rm -rf node_modules package-lock.json \
+	&& npm cache clean --force \
+	&& npm install \
+	&& npm install vite --save-dev
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["npx", "vite", "--host", "--port", "5173"]

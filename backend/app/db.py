@@ -8,7 +8,8 @@ db_path = os.path.join(project_root, 'data.db')
 DB_URL = os.getenv("DB_URL", f"sqlite:///{db_path}")
 connect_args = {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
 print('>>> CRIANDO TABELAS NO BANCO DE DADOS <<<', db_path)
-engine = create_engine(DB_URL, echo=False, connect_args=connect_args)
+# Ativa modo debug/echo do SQLAlchemy
+engine = create_engine(DB_URL, echo=True, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):

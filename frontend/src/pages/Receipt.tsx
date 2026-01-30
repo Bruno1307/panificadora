@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../api'
+import { getApi } from '../api'
 import QRCode from 'react-qr-code'
 import { QrCodePix } from 'qrcode-pix'
 import React from 'react';
@@ -79,6 +79,7 @@ export default function Receipt() {
 
   useEffect(() => {
     async function load() {
+      const api = await getApi();
       const { data } = await api.get<Order>(`/orders/${id}`)
       setOrder(data)
     }
@@ -87,6 +88,7 @@ export default function Receipt() {
 
   useEffect(() => {
     async function loadProducts() {
+      const api = await getApi();
       const { data } = await api.get<Product[]>(`/products/`)
       setProducts(data)
     }
@@ -96,6 +98,7 @@ export default function Receipt() {
   useEffect(() => {
     async function loadConfig() {
       try {
+        const api = await getApi();
         const { data } = await api.get('/config')
         setPixConfig(data)
       } catch {}

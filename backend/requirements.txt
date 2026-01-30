@@ -11,3 +11,9 @@ alembic==1.13.3
 psycopg2-binary==2.9.10
 python-jose==3.3.0
 passlib==1.7.4
+
+# Para reconhecimento de voz
+openai-whisper
+
+# Necessário para upload de arquivos no FastAPI
+python-multipart

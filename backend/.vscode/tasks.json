@@ -9,6 +9,15 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "Iniciar backend FastAPI",
+			"type": "shell",
+			"command": "/home/bruno/Panificadora Jardim/padaria-pdv/.venv/bin/python -m uvicorn app.main:app --reload",
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

@@ -4,7 +4,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Instala dependências do sistema (inclui curl para healthcheck)
-RUN apt-get update && apt-get install -y build-essential libpq-dev curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y build-essential libpq-dev curl ffmpeg && rm -rf /var/lib/apt/lists/*
 
 
 # Garante timezone UTC no container
@@ -21,5 +21,8 @@ RUN pip uninstall -y bcrypt passlib \
 # Expõe a porta do backend
 EXPOSE 8000
 
-# Comando para rodar o backend
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Garante que o diretório /app esteja no PYTHONPATH
+ENV PYTHONPATH="/app"
+
+# Comando para rodar o backend com log detalhado e sem buffer
+CMD ["python", "-u", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
