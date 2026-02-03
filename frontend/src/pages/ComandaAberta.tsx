@@ -27,9 +27,15 @@ interface Comanda {
 export default function ComandaAberta() {
   const [comandas, setComandas] = useState<Comanda[]>([]);
   const [produtos, setProdutos] = useState<Product[]>([]);
-  const [produtoId, setProdutoId] = useState<string>('');
-  const [qtd, setQtd] = useState<number>(1);
-  const [comandaSel, setComandaSel] = useState<number|null>(null);
+  const [produtoId, setProdutoId] = useState<string>(() => localStorage.getItem('comanda_produtoId') || '');
+  const [qtd, setQtd] = useState<number>(() => {
+    const v = localStorage.getItem('comanda_qtd');
+    return v ? Number(v) : 1;
+  });
+  const [comandaSel, setComandaSel] = useState<number | null>(() => {
+    const v = localStorage.getItem('comanda_comandaSel');
+    return v ? Number(v) : null;
+  });
   const [novaLoading, setNovaLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [cliente, setCliente] = useState('');
@@ -37,6 +43,17 @@ export default function ComandaAberta() {
   const [showNova, setShowNova] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<'balcao'|'comanda'>('comanda');
+
+  // Persistência dos campos de edição de item
+  useEffect(() => { localStorage.setItem('comanda_produtoId', produtoId); }, [produtoId]);
+  useEffect(() => { localStorage.setItem('comanda_qtd', String(qtd)); }, [qtd]);
+  useEffect(() => {
+    if (comandaSel !== null && comandaSel !== undefined) {
+      localStorage.setItem('comanda_comandaSel', String(comandaSel));
+    } else {
+      localStorage.removeItem('comanda_comandaSel');
+    }
+  }, [comandaSel]);
 
   async function loadComandas() {
     setLoading(true);
@@ -62,7 +79,16 @@ export default function ComandaAberta() {
     }
   }
 
-  useEffect(() => { loadComandas(); loadProdutos(); }, []);
+
+  // Atualização automática das comandas a cada 3 segundos
+  useEffect(() => {
+    loadComandas();
+    loadProdutos();
+    const interval = setInterval(() => {
+      loadComandas();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
 
 
@@ -83,6 +109,35 @@ export default function ComandaAberta() {
       setMsg(errorMsg || 'Erro ao abrir comanda');
     } finally { setNovaLoading(false) }
   }
+  // Fila offline/local para itens não enviados
+  function getOfflineQueue() {
+    try {
+      return JSON.parse(localStorage.getItem('comanda_offline_queue') || '[]');
+    } catch { return []; }
+  }
+  function setOfflineQueue(queue) {
+    localStorage.setItem('comanda_offline_queue', JSON.stringify(queue));
+  }
+
+  async function syncOfflineQueue() {
+    const queue = getOfflineQueue();
+    if (!queue.length) return;
+    let ok = true;
+    for (const item of queue) {
+      try {
+        const api = await getApi();
+        await api.post(`/comandas/${item.comandaId}/adicionar_item`, { product_id: item.productoId, quantity: item.qtd });
+      } catch {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) setOfflineQueue([]);
+    loadComandas();
+  }
+
+  useEffect(() => { syncOfflineQueue(); }, []);
+
   async function adicionarItem(comandaId:number) {
     if (!produtoId || !qtd) return;
     setMsg('')
@@ -91,10 +146,12 @@ export default function ComandaAberta() {
       await api.post(`/comandas/${comandaId}/adicionar_item`, { product_id: Number(produtoId), quantity: Number(qtd) })
       setProdutoId(''); setQtd(1); setComandaSel(null); loadComandas()
     } catch (e) {
-      const errorMsg = (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data)
-        ? (e as any).response.data.detail
-        : (e instanceof Error ? e.message : String(e));
-      setMsg(errorMsg || 'Erro ao adicionar item');
+      // Se falhar, salva na fila offline/local
+      const queue = getOfflineQueue();
+      queue.push({ comandaId, productoId: Number(produtoId), qtd: Number(qtd) });
+      setOfflineQueue(queue);
+      setMsg('Sem conexão: item salvo localmente e será enviado quando possível.');
+      setProdutoId(''); setQtd(1); setComandaSel(null);
     }
   }
   async function fecharComanda(comandaId:number) {
@@ -143,9 +200,9 @@ export default function ComandaAberta() {
           </button>
           {showNova && (
             <form onSubmit={abrirComanda} style={{margin:'16px 0', display:'flex', gap:16, alignItems:'center', background:'#f6f8fa', padding:16, borderRadius:10, boxShadow:'0 2px 8px #0001'}}>
-              <input className="input" placeholder="Cliente" value={cliente} onChange={e=>setCliente(e.target.value)} required style={{fontSize:17, padding:8, borderRadius:6, border:'1px solid #ccc'}} />
-              <input className="input" placeholder="Mesa/Ref" value={mesa} onChange={e=>setMesa(e.target.value)} style={{fontSize:17, padding:8, borderRadius:6, border:'1px solid #ccc'}} />
-              <button className="button success" type="submit" disabled={novaLoading} style={{fontSize:17, padding:'8px 18px', borderRadius:6}}>{novaLoading ? 'Abrindo...' : 'Abrir'}</button>
+              <input className="input" placeholder="Cliente" value={cliente} onChange={e=>setCliente(e.target.value)} required style={{fontSize:24, padding:18, borderRadius:14, border:'2px solid #ccc', minHeight:56}} />
+              <input className="input" placeholder="Mesa/Ref" value={mesa} onChange={e=>setMesa(e.target.value)} style={{fontSize:24, padding:18, borderRadius:14, border:'2px solid #ccc', minHeight:56}} />
+              <button className="button success" type="submit" disabled={novaLoading} style={{fontSize:24, padding:'18px 32px', borderRadius:14, minHeight:56}}>{novaLoading ? 'Abrindo...' : 'Abrir'}</button>
             </form>
           )}
           {loading && <div style={{margin:'24px 0', fontSize:18}}>Carregando...</div>}

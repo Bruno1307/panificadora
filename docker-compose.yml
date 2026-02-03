@@ -17,6 +17,17 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      padaria_net:
+        ipv4_address: 10.62.212.25
+
+networks:
+  padaria_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.62.212.0/24
+          gateway: 10.62.212.1
 
   frontend:
     build: ./frontend

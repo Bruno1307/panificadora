@@ -96,3 +96,4 @@ CHECKLIST_MIGRACAO_MAQUINA.md
 !backend/backup_cron.txt
 !backend/requests/
 !backend/requests/20260106_add_order_number.sql
+node_modules

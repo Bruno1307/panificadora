@@ -60,12 +60,14 @@ async def get_config():
 
 
 
-from .routers import indicators, comandas
+
+from .routers import indicators, comandas, categories
 app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(auth.router)
 app.include_router(indicators.router)
 app.include_router(comandas.router)
+app.include_router(categories.router)
 
 app.include_router(voice.router)
 

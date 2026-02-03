@@ -11,6 +11,8 @@ import Login from './pages/Login'
 import React, { useState } from 'react';
 import { ToastProvider } from './components/Toast';
 
+import TouchMenu from './pages/TouchMenu';
+
 import ComandaAberta from './pages/ComandaAberta';
 
 export default function App() {
@@ -98,6 +100,8 @@ export default function App() {
               {isGerente && <Route path="/indicators" element={<Indicators />} />}
               <Route path="/balcao" element={<Balcao />} />
               <Route path="/comanda-aberta" element={<ComandaAberta />} />
+               {/* Nova página de menu touch para testes */}
+               <Route path="/touch-menu" element={<TouchMenu />} />
               <Route path="/login" element={<Login onLogin={handleLogin} />} />
             </Routes>
           </>

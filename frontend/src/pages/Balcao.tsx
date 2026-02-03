@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
 import { connectOrdersWS } from '../ws';
 import { useNavigate } from 'react-router-dom';
 import { getApi } from '../api';
@@ -154,7 +156,9 @@ function Balcao() {
 
   async function loadRecentOrders(apiInstance?: any) {
     const api = apiInstance || await getApi();
-    const res = await api.get('/orders?status=pending');
+    // Busca todos os pedidos, não apenas os pendentes
+    const res = await api.get('/orders');
+    // Ordena por data de criação (mais recentes primeiro) e limita a 10
     setRecentOrders(res.data.sort((a: Order, b: Order) => (b.created_at && a.created_at ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : 0)).slice(0, 10));
   }
 
@@ -231,7 +235,7 @@ function Balcao() {
         {/* Coluna Catálogo */}
         <div style={{ flex: 2, minWidth: 0, background: '#f7fafc', color: '#23264a', borderRadius: 0, boxShadow: 'none', padding: '32px 32px 32px 24px', margin: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ marginBottom: 20, display: 'flex', gap: 12 }}>
-            <button className="button" style={{ borderRadius: 12, fontWeight: 600, fontSize: 16, padding: '8px 18px', boxShadow: '0 2px 8px #0003', background: '#43e97b', color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }} onClick={voice.startRecording} disabled={voice.recording}>
+            <button className="button" style={{ borderRadius: 16, fontWeight: 700, fontSize: 22, padding: '18px 28px', boxShadow: '0 2px 8px #0003', background: '#43e97b', color: '#fff', display: 'flex', alignItems: 'center', gap: 8, minHeight: 56 }} onClick={voice.startRecording} disabled={voice.recording}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill={voice.recording ? '#ff4d4f' : '#fff'} xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3s-3 1.34-3 3v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/>
@@ -247,32 +251,59 @@ function Balcao() {
               placeholder="Nome do cliente"
               value={customerName}
               onChange={e => setCustomerName(e.target.value)}
-              style={{ flex: 1, borderRadius: 10, fontSize: 16, padding: '10px 12px', border: '1px solid #d1d5db', background: '#f7fafc', color: '#23264a' }}
+              style={{ flex: 1, borderRadius: 14, fontSize: 22, padding: '18px 18px', border: '2px solid #d1d5db', background: '#f7fafc', color: '#23264a', minHeight: 56 }}
             />
             <input
               className="input"
               placeholder="Mesa/Comanda"
               value={tableRef}
               onChange={e => setTableRef(e.target.value)}
-              style={{ flex: 1, borderRadius: 10, fontSize: 16, padding: '10px 12px', border: '1px solid #d1d5db', background: '#f7fafc', color: '#23264a' }}
+              style={{ flex: 1, borderRadius: 14, fontSize: 22, padding: '18px 18px', border: '2px solid #d1d5db', background: '#f7fafc', color: '#23264a', minHeight: 56 }}
             />
           </div>
           <h3 style={{ fontWeight: 600, marginBottom: 8, color: '#23264a' }}>Catálogo</h3>
-          <input
-            className="input"
-            placeholder="Buscar produto por nome"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ marginBottom: 16, width: '100%', borderRadius: 10, fontSize: 16, padding: '10px 12px', border: '1px solid #d1d5db', background: '#f7fafc', color: '#23264a' }}
+          <Autocomplete
+            freeSolo
+            options={products.map((option) => option.name)}
+            inputValue={search}
+            onInputChange={(_event, newInputValue) => setSearch(newInputValue)}
+            onChange={(_event, value) => {
+              if (typeof value === 'string') {
+                const prod = products.find(p => p.name === value);
+                if (prod) addToCart({ ...prod, quantity: 1 });
+              }
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Buscar produto por nome"
+                variant="outlined"
+                sx={{ marginBottom: 2, width: '100%', borderRadius: 2, fontSize: 22, '& .MuiInputBase-root': { borderRadius: 2, fontSize: 22, minHeight: 56 } }}
+              />
+            )}
           />
           <div className="catalogo-scroll" style={{ maxHeight: 650, overflowY: 'auto', marginBottom: 8 }}>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {filteredProducts.map(p => (
-                <li key={p.id} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', background: '#f7fafc', borderRadius: 14, boxShadow: '0 2px 8px #0001', padding: '12px 12px', border: '2px solid #43e97b' }}>
+                <li
+                  key={p.id}
+                  style={{ marginBottom: 16, display: 'flex', alignItems: 'center', background: '#f7fafc', borderRadius: 14, boxShadow: '0 2px 8px #0001', padding: '12px 12px', border: '2px solid #43e97b', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onClick={() => addToCart({ ...p, quantity: 1 })}
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') addToCart({ ...p, quantity: 1 }); }}
+                  aria-label={`Adicionar ${p.name} ao carrinho`}
+                >
                   <span style={{ flex: 1, fontWeight: 600, fontSize: 18 }}>{p.name} <small style={{ color: '#6b7280', fontSize: 16 }}>R$ {p.price.toFixed(2)}</small></span>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {[1,3,5].map((qtd, idx) => (
-                      <button key={qtd} className="button" style={{ background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)', color: '#23264a', borderRadius: 10, fontWeight: 700, fontSize: 20, padding: '10px 14px', boxShadow: '0 2px 8px #0001', minWidth: 48 }} onClick={() => addToCart({ ...p, quantity: qtd })}>+{qtd}</button>
+                      <button
+                        key={qtd}
+                        className="button"
+                        style={{ background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)', color: '#23264a', borderRadius: 10, fontWeight: 700, fontSize: 20, padding: '10px 14px', boxShadow: '0 2px 8px #0001', minWidth: 48 }}
+                        onClick={e => { e.stopPropagation(); addToCart({ ...p, quantity: qtd }); }}
+                        tabIndex={0}
+                        aria-label={`Adicionar ${qtd} de ${p.name}`}
+                      >+{qtd}</button>
                     ))}
                   </div>
                 </li>
@@ -313,7 +344,7 @@ function Balcao() {
       </div>
       {/* Últimos 10 pedidos enviados - abaixo do carrinho e catálogo */}
       <div style={{ maxWidth: 1200, margin: '32px auto 0 auto', background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px #43e97b22', padding: '32px 32px', border: '2px solid #43e97b' }}>
-        <h3 style={{ fontWeight: 600, marginBottom: 16, color: '#23264a' }}>Últimos 10 pedidos enviados</h3>
+        <h3 style={{ fontWeight: 600, marginBottom: 16, color: '#23264a' }}>Últimos pedidos enviados</h3>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {recentOrders.length === 0 && <li style={{ color: '#888' }}>Nenhum pedido enviado ainda.</li>}
           {recentOrders.map(order => {
@@ -332,6 +363,17 @@ function Balcao() {
                   </button>
                 </div>
                 <div style={{ fontSize: 13, color: '#6b7280' }}>Enviado em: {order.created_at ? new Date(order.created_at.replace(' ', 'T') + 'Z').toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }) : '-'}</div>
+                {/* Itens do pedido */}
+                <ul style={{ margin: '8px 0 0 0', padding: '0 0 0 18px', fontSize: 15, color: '#23264a' }}>
+                  {order.items.map(it => {
+                    const prod = products.find(p => p.id === it.product_id);
+                    return (
+                      <li key={it.product_id}>
+                        {prod ? prod.name : `Produto ${it.product_id}`} x{it.quantity} — {(it.unit_price * it.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </li>
+                    );
+                  })}
+                </ul>
               </li>
             );
           })}
