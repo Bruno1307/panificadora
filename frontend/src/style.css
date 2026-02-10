@@ -119,7 +119,6 @@ input[type=number] {
 
 /* Corrige contraste dos itens desabilitados no modal de edição */
 /* Removido fundo escuro forçado para respeitar o tema */
-}
 
 /* Garante fundo opaco para a lista de produtos dentro do modal */
 .edit-modal-product-list {
@@ -129,7 +128,6 @@ input[type=number] {
 }
 
 /* Removido fundo escuro forçado para respeitar o tema */
-}
 
 .edit-modal-product-list .list li {
   background: transparent !important;
@@ -269,6 +267,11 @@ body { background: var(--bg); }
   background: linear-gradient(90deg, var(--accent) 0%, #6ee7b7 100%);
   box-shadow: 0 2px 8px 0 rgba(34,197,94,0.10);
 }
+
+/* Controles compactos de quantidade no Balcão */
+.qty-row { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.qty-btn { min-width: 40px; width: 40px; height: 40px; padding: 0; border-radius: 10px; font-weight: 700; }
+.qty-input { width: 56px; text-align: center; padding: 8px 10px; }
 
 /* Barra de rolagem elegante só na lateral do modal de edição */
 .edit-modal-product-list {

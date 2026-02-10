@@ -1,3 +1,40 @@
+## Divisão automática da tela (PDV em dois navegadores)
+
+- Pré-requisitos: `wmctrl` e `xdotool` instalados
+
+```bash
+sudo apt update
+sudo apt install -y wmctrl xdotool
+```
+
+- Execução padrão (abre e tenta dividir automaticamente):
+
+```bash
+DUAL=1 KIOSK=0 GUEST_LEFT=1 GUEST_RIGHT=0 scripts_deploy/start_pdv_browser.sh
+```
+
+- Variáveis úteis:
+  - `USE_KEY_SNAP=1`: usa teclas do desktop (Super+Left/Right) como fallback
+  - `MARGIN_X`/`MARGIN_Y`: compensar barras/painéis do desktop
+
+Exemplos:
+
+```bash
+USE_KEY_SNAP=1 DUAL=1 scripts_deploy/start_pdv_browser.sh
+MARGIN_Y=30 DUAL=1 scripts_deploy/start_pdv_browser.sh
+```
+
+- Reposição manual/forçada (após abrir):
+
+```bash
+scripts_deploy/position_pdv_windows.sh
+```
+
+- Observações:
+  - Em alguns gerenciadores de janelas, estados como "shaded", maximizado ou fullscreen impedem redimensionamento; o script remove esses estados antes de posicionar.
+  - Em Wayland, o script força XWayland para melhor controle. Em X11 padrão, o controle é mais confiável.
+  - Para garantia total, considerar integrar `devilspie2` com regras por `WM_CLASS` (`pdv-left`/`pdv-right`).
+
 # Guia de Deploy Seguro e Desenvolvimento Contínuo
 
 ## 1. Estrutura de Ambientes

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Autocomplete from '@mui/material/Autocomplete';
-import TextField from '@mui/material/TextField';
+import { Autocomplete, TextField } from '@mui/material';
 import { connectOrdersWS } from '../ws';
 import { useNavigate } from 'react-router-dom';
 import { getApi } from '../api';

@@ -21,14 +21,6 @@ services:
       padaria_net:
         ipv4_address: 10.62.212.25
 
-networks:
-  padaria_net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.62.212.0/24
-          gateway: 10.62.212.1
-
   frontend:
     build: ./frontend
     container_name: padaria-frontend
@@ -43,3 +35,14 @@ networks:
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      padaria_net:
+        ipv4_address: 10.62.212.26
+
+networks:
+  padaria_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.62.212.0/24
+          gateway: 10.62.212.1

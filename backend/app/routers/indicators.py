@@ -59,11 +59,16 @@ def get_revenue(
         result = q.group_by(Order.payment_method).all()
         return {method or "Indefinido": float(total or 0) for method, total in result}
 
-    # Períodos padrão
-    start_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    start_week = start_day - timedelta(days=start_day.weekday())
-    start_month = start_day.replace(day=1)
-    start_year = start_day.replace(month=1, day=1)
+    # Períodos padrão (converter do horário local para UTC para comparar com paid_at em UTC)
+    local_start_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    local_start_week = local_start_day - timedelta(days=local_start_day.weekday())
+    local_start_month = local_start_day.replace(day=1)
+    local_start_year = local_start_day.replace(month=1, day=1)
+
+    start_day = to_utc(local_start_day)
+    start_week = to_utc(local_start_week)
+    start_month = to_utc(local_start_month)
+    start_year = to_utc(local_start_year)
 
     # Se custom_start/end, calcula apenas para o período customizado
     if custom_start or custom_end:

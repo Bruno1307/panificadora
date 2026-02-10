@@ -16,8 +16,16 @@ export default function Indicators() {
   const [data, setData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [start, setStart] = useState<string>('');
-  const [end, setEnd] = useState<string>('');
+  // Por padrão: hoje (YYYY-MM-DD) em horário local
+  function formatDateYYYYMMDD(d: Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  const todayStr = formatDateYYYYMMDD(new Date());
+  const [start, setStart] = useState<string>(todayStr);
+  const [end, setEnd] = useState<string>(todayStr);
 
   async function fetchIndicators(startDate?: string, endDate?: string) {
     setLoading(true);
@@ -45,7 +53,8 @@ export default function Indicators() {
   }, [data]);
 
   useEffect(() => {
-    fetchIndicators();
+    // Busca inicial já filtrada para hoje
+    fetchIndicators(todayStr, todayStr);
   }, []);
 
   return (
@@ -86,7 +95,7 @@ export default function Indicators() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
           <button type="submit" style={{ padding: '8px 18px', borderRadius: 8, background: '#6c7bff', color: '#fff', border: 'none', fontWeight: 500, cursor: 'pointer' }}>Filtrar</button>
-          <button type="button" style={{ padding: '8px 18px', borderRadius: 8, background: '#eee', color: '#222', border: 'none', fontWeight: 500, cursor: 'pointer' }} onClick={() => { setStart(''); setEnd(''); fetchIndicators(); }}>Limpar</button>
+          <button type="button" style={{ padding: '8px 18px', borderRadius: 8, background: '#eee', color: '#222', border: 'none', fontWeight: 500, cursor: 'pointer' }} onClick={() => { const t = formatDateYYYYMMDD(new Date()); setStart(t); setEnd(t); fetchIndicators(t, t); }}>Limpar</button>
         </div>
       </form>
       {loading && <div>Carregando...</div>}

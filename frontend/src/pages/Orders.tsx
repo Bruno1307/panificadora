@@ -153,17 +153,19 @@ export default function Orders() {
                 <strong>{p.name}</strong>
                 <div className="item-meta">R$ {p.price.toFixed(2)} {p.barcode ? `· ${p.barcode}` : ''}</div>
               </div>
-              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                <button className="button secondary" onClick={() => setProductQty(p.id, Math.max(1, (qtyMap[p.id] ?? 1) - 1))}>−</button>
+              <div className="qty-row">
+                <button className="button secondary qty-btn" onClick={() => setProductQty(p.id, Math.max(1, (qtyMap[p.id] ?? 1) - 1))}>−</button>
                 <input
-                  className="input"
+                  className="input qty-input"
                   type="number"
                   min={1}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={qtyMap[p.id] ?? 1}
                   onChange={e => setProductQty(p.id, Math.max(1, parseInt(e.target.value || '1')))}
-                  style={{ width: 80 }}
+                  style={{}}
                 />
-                <button className="button secondary" onClick={() => setProductQty(p.id, (qtyMap[p.id] ?? 1) + 1)}>+</button>
+                <button className="button secondary qty-btn" onClick={() => setProductQty(p.id, (qtyMap[p.id] ?? 1) + 1)}>+</button>
                 <button className="button" onClick={() => addToCart(p)}>Adicionar</button>
               </div>
             </li>
@@ -186,17 +188,19 @@ export default function Orders() {
                   <strong>{p.name}</strong>
                   <div className="item-meta">unidades</div>
                 </div>
-                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                  <button className="button secondary" onClick={() => updateCartQty(i.product_id, Math.max(1, i.quantity - 1))}>−</button>
+                <div className="qty-row">
+                  <button className="button secondary qty-btn" onClick={() => updateCartQty(i.product_id, Math.max(1, i.quantity - 1))}>−</button>
                   <input
-                    className="input"
+                    className="input qty-input"
                     type="number"
                     min={1}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={i.quantity}
                     onChange={e => updateCartQty(i.product_id, Math.max(1, parseInt(e.target.value || '1')))}
-                    style={{ width: 80 }}
+                    style={{}}
                   />
-                  <button className="button secondary" onClick={() => updateCartQty(i.product_id, i.quantity + 1)}>+</button>
+                  <button className="button secondary qty-btn" onClick={() => updateCartQty(i.product_id, i.quantity + 1)}>+</button>
                   <span>R$ {(p.price * i.quantity).toFixed(2)}</span>
                   <button className="button danger" onClick={() => removeFromCart(i.product_id)}>Remover</button>
                 </div>
