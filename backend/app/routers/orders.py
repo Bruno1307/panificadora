@@ -121,8 +121,40 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "pending":
         raise HTTPException(status_code=400, detail="Order is not pending")
+    # Calcula total do pedido a partir dos itens
+    total_value = sum(float(it.unit_price) * it.quantity for it in order.items)
+
+    # Se veio lista de pagamentos, registra partes
+    methods_join = None
+    if data.payments and len(data.payments) > 0:
+        # Validar e somar
+        parts_sum = 0.0
+        for part in data.payments:
+            if not part.method:
+                raise HTTPException(status_code=400, detail="Payment part must include method")
+            if part.amount is None or float(part.amount) < 0:
+                raise HTTPException(status_code=400, detail="Payment part amount must be >= 0")
+            parts_sum += float(part.amount)
+        # Tolerância de centavos
+        if round(parts_sum, 2) < round(total_value, 2):
+            raise HTTPException(status_code=400, detail="Total payment parts are less than order total")
+        # Remove pagamentos anteriores, se houver, para idempotência
+        order.payments.clear()
+        # Registrar pagamentos
+        for part in data.payments:
+            db.add(models.OrderPayment(order_id=order.id, method=part.method, amount=float(part.amount)))
+        methods_join = " + ".join(sorted(set(p.method for p in data.payments)))
+    else:
+        # Caso simples: único método informado
+        if not data.method:
+            raise HTTPException(status_code=400, detail="Payment method required")
+        # Registrar um pagamento com valor total
+        db.add(models.OrderPayment(order_id=order.id, method=data.method, amount=round(total_value, 2)))
+        methods_join = data.method
+
+    # Atualizar status e metadados do pedido
     order.status = "paid"
-    order.payment_method = data.method
+    order.payment_method = methods_join
     order.paid_at = datetime.utcnow()
     db.commit()
     db.refresh(order)

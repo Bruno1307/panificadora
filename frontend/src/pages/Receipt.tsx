@@ -68,6 +68,7 @@ type Order = {
   payment_method?: string | null
   paid_at?: string | null
   items: { id: number; product_id: number; quantity: number; unit_price: number }[]
+  payments?: { method: string; amount: number }[]
 }
 type Product = { id: number; name: string }
 
@@ -190,7 +191,12 @@ export default function Receipt() {
       <div style={{ fontSize: 13, marginBottom: 4, color: 'var(--text)' }}>
         <b>Pagamento:</b> {order.payment_method || '-'} {order.paid_at ? `(${order.paid_at.replace('T',' ').slice(0,16)})` : ''}
       </div>
-      {order.payment_method === 'pix' && pixConfig && (
+      {order.payments && order.payments.length > 0 && (
+        <div style={{ fontSize: 13, marginBottom: 4, color: 'var(--text)' }}>
+          <b>Detalhe:</b> {order.payments.map(p => `${p.method}: R$ ${Number(p.amount).toFixed(2)}`).join(' · ')}
+        </div>
+      )}
+      {(order.payment_method === 'pix' || (order.payments || []).some(p => p.method === 'pix')) && pixConfig && (
         <div style={{ fontSize: 12, marginBottom: 4, color: 'var(--text)' }}>
           <b>Chave Pix:</b> {pixConfig.pix_key}<br />
           <b>Nome:</b> {pixConfig.pix_name} &nbsp; <b>Cidade:</b> {pixConfig.pix_city}

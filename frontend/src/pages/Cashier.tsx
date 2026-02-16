@@ -19,6 +19,7 @@ type Order = {
   table_ref?: string;
   items: OrderItem[];
   payment_method?: string;
+  payments?: { method: string; amount: number }[];
 };
 
 // Ações pendentes para máxima persistência
@@ -160,6 +161,11 @@ export default function Cashier() {
   const [productSearch, setProductSearch] = useState<string>('');
   const [method, setMethod] = useState<'dinheiro' | 'pix' | 'débito' | 'crédito'>('dinheiro');
   const [cashReceivedRaw, setCashReceivedRaw] = useState<string>('');
+  const [multiPay, setMultiPay] = useState<boolean>(false);
+  const [cashPartRaw, setCashPartRaw] = useState<string>('');
+  const [pixPartRaw, setPixPartRaw] = useState<string>('');
+  const [debitPartRaw, setDebitPartRaw] = useState<string>('');
+  const [creditPartRaw, setCreditPartRaw] = useState<string>('');
   const [loadError, setLoadError] = useState<string>('');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
   const [roleInfo] = useState<string>(() => localStorage.getItem('role') || '');
@@ -449,6 +455,11 @@ export default function Cashier() {
 
   const payingTotal = payingOrder ? total(payingOrder, products) : 0
   const change = Math.max(0, cashReceived - payingTotal)
+  const cashPart = useMemo(() => parseFloat((cashPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [cashPartRaw])
+  const pixPart = useMemo(() => parseFloat((pixPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [pixPartRaw])
+  const debitPart = useMemo(() => parseFloat((debitPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [debitPartRaw])
+  const creditPart = useMemo(() => parseFloat((creditPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [creditPartRaw])
+  const partsSum = useMemo(() => cashPart + pixPart + debitPart + creditPart, [cashPart, pixPart, debitPart, creditPart])
 
   async function confirmPayment() {
     if (!payingOrder) return;
@@ -460,7 +471,15 @@ export default function Cashier() {
     let lastErr: any = null;
     for (let i = 0; i < 3; i++) {
       try {
-        await api.post(`/orders/${payingOrder.id}/pay`, { method }, { headers });
+        const payload = multiPay ? {
+          payments: [
+            ...(cashPart > 0 ? [{ method: 'dinheiro', amount: Number(cashPart.toFixed(2)) }] : []),
+            ...(pixPart > 0 ? [{ method: 'pix', amount: Number(pixPart.toFixed(2)) }] : []),
+            ...(debitPart > 0 ? [{ method: 'débito', amount: Number(debitPart.toFixed(2)) }] : []),
+            ...(creditPart > 0 ? [{ method: 'crédito', amount: Number(creditPart.toFixed(2)) }] : []),
+          ]
+        } : { method };
+        await api.post(`/orders/${payingOrder.id}/pay`, payload, { headers });
         lastErr = null;
         break;
       } catch (e: any) {
@@ -807,9 +826,12 @@ export default function Cashier() {
                   </label>
                 ))}
               </div>
+              <label style={{ display:'flex', gap:6, alignItems:'center', marginTop: 8 }}>
+                <input type="checkbox" checked={multiPay} onChange={e=>setMultiPay(e.target.checked)} /> Dividir pagamento
+              </label>
             </div>
 
-            {(method === 'dinheiro' || method === 'pix' || method === 'débito' || method === 'crédito') && (
+            {(method === 'dinheiro' || method === 'pix' || method === 'débito' || method === 'crédito') && !multiPay && (
               <div style={{ marginBottom: 12 }}>
                 {method === 'dinheiro' && (
                   <>
@@ -835,6 +857,33 @@ export default function Cashier() {
                 <div className="item-meta">
                   Total: R$ {payingTotal.toFixed(2)}
                   {method === 'dinheiro' && <> · Troco: R$ {change.toFixed(2)}</>}
+                </div>
+              </div>
+            )}
+
+            {multiPay && (
+              <div style={{ marginBottom: 12 }}>
+                <label className="item-meta">Dividir pagamento por método</label>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div>
+                    <label className="item-meta">Dinheiro</label>
+                    <input className="input" type="text" inputMode="decimal" value={cashPartRaw} onChange={e=>setCashPartRaw(e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div>
+                    <label className="item-meta">Pix</label>
+                    <input className="input" type="text" inputMode="decimal" value={pixPartRaw} onChange={e=>setPixPartRaw(e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div>
+                    <label className="item-meta">Débito</label>
+                    <input className="input" type="text" inputMode="decimal" value={debitPartRaw} onChange={e=>setDebitPartRaw(e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div>
+                    <label className="item-meta">Crédito</label>
+                    <input className="input" type="text" inputMode="decimal" value={creditPartRaw} onChange={e=>setCreditPartRaw(e.target.value)} placeholder="0,00" />
+                  </div>
+                </div>
+                <div className="item-meta" style={{ marginTop: 8 }}>
+                  Total do pedido: R$ {payingTotal.toFixed(2)} · Soma das partes: R$ {partsSum.toFixed(2)}
                 </div>
               </div>
             )}
@@ -877,7 +926,8 @@ export default function Cashier() {
                 className="button confirmar"
                 onClick={confirmPayment}
                 disabled={
-                  method === 'dinheiro' && (cashReceivedRaw.trim() !== '' && cashReceived < payingTotal)
+                  (!multiPay && method === 'dinheiro' && (cashReceivedRaw.trim() !== '' && cashReceived < payingTotal)) ||
+                  (multiPay && partsSum < payingTotal)
                 }
               >
                 Confirmar recebimento

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 from ..db import get_db
-from ..models import Order, OrderItem, Product
+from ..models import Order, OrderItem, Product, OrderPayment
 from ..deps_auth import require_role
 
 router = APIRouter(prefix="/indicators", tags=["indicators"])
@@ -49,14 +49,15 @@ def get_revenue(
         return q.scalar() or 0
 
     def payment_totals_for_period(start_date, end_date=None):
-        q = db.query(Order.payment_method, func.sum(OrderItem.unit_price * OrderItem.quantity))\
-            .join(OrderItem, Order.id == OrderItem.order_id)\
+        # Soma por método com base nos pagamentos registrados
+        q = db.query(OrderPayment.method, func.sum(OrderPayment.amount))\
+            .join(Order, Order.id == OrderPayment.order_id)\
             .filter(Order.status == "paid")
         if start_date:
             q = q.filter(Order.paid_at >= start_date)
         if end_date:
             q = q.filter(Order.paid_at <= end_date)
-        result = q.group_by(Order.payment_method).all()
+        result = q.group_by(OrderPayment.method).all()
         return {method or "Indefinido": float(total or 0) for method, total in result}
 
     # Períodos padrão (converter do horário local para UTC para comparar com paid_at em UTC)

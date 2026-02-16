@@ -57,10 +57,22 @@ class Order(BaseModel):
     table_ref: Optional[str] = None
     paid_at: Optional[datetime] = None
     payment_method: Optional[str] = None
+    payments: Optional[List[OrderPayment]] = None
     class Config:
         from_attributes = True
 
 
-# Schema para pagamento do pedido
-class PayOrder(BaseModel):
+class PaymentPart(BaseModel):
     method: str
+    amount: float = Field(ge=0)
+
+class OrderPayment(PaymentPart):
+    id: int
+    created_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+# Schema para pagamento do pedido: permite único método ou lista de partes
+class PayOrder(BaseModel):
+    method: Optional[str] = None
+    payments: Optional[List[PaymentPart]] = None

@@ -48,6 +48,7 @@ class Order(Base):
     paid_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
     payment_method: Mapped[str | None] = mapped_column(String(30), nullable=True)
     items: Mapped[list[OrderItem]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    payments: Mapped[list[OrderPayment]] = relationship("OrderPayment", back_populates="order", cascade="all, delete-orphan")
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -59,3 +60,13 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship("Order", back_populates="items")
     product: Mapped[Product] = relationship("Product")
+
+class OrderPayment(Base):
+    __tablename__ = "order_payments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"))
+    method: Mapped[str] = mapped_column(String(30))
+    amount: Mapped[float] = mapped_column(Numeric(10,2))
+    created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+
+    order: Mapped[Order] = relationship("Order", back_populates="payments")
