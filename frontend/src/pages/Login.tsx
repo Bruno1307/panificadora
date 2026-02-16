@@ -1,11 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getApi, getDomainUrl } from '../api';
+import { getApi } from '../api';
 
 export default function Login({ onLogin }: { onLogin: (token: string, role: string) => void }) {
-  const [domainUrl, setDomainUrl] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    getDomainUrl().then(setDomainUrl);
-  }, []);
   const userRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     userRef.current?.focus();
@@ -23,8 +19,13 @@ export default function Login({ onLogin }: { onLogin: (token: string, role: stri
       const api = await getApi();
       const { data } = await api.post('/auth/login', { username, password });
       onLogin(data.access_token, data.role);
-    } catch (err) {
-      setError('Usuário ou senha inválidos');
+    } catch (err: any) {
+      // Diferencia erro de autenticação (401) de erro de conexão (sem resposta)
+      if (err?.response && err.response.status === 401) {
+        setError('Usuário ou senha inválidos');
+      } else {
+        setError('Falha de conexão ao backend. Verifique URL e rede.');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,11 +42,6 @@ export default function Login({ onLogin }: { onLogin: (token: string, role: stri
         flexDirection: 'column',
       }}
     >
-      {domainUrl && (
-        <div style={{ textAlign: 'center', marginBottom: 10, color: '#888', fontSize: 12 }}>
-          <span>Dominio configurado: {domainUrl}</span>
-        </div>
-      )}
       <div className="card" style={{
         width: 370,
         padding: '36px 32px 32px 32px',

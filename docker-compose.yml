@@ -19,7 +19,7 @@ services:
       start_period: 20s
     networks:
       padaria_net:
-        ipv4_address: 10.62.212.25
+        ipv4_address: 172.20.0.10
 
   frontend:
     build: ./frontend
@@ -37,12 +37,12 @@ services:
         condition: service_healthy
     networks:
       padaria_net:
-        ipv4_address: 10.62.212.26
+        ipv4_address: 172.20.0.11
 
 networks:
   padaria_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 10.62.212.0/24
-          gateway: 10.62.212.1
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1

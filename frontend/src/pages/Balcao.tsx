@@ -144,8 +144,13 @@ function Balcao() {
     let wsInstance: WebSocket | null = null;
     (async () => {
       const api = await getApi();
-      api.get('/products').then(res => setProducts(res.data));
-      loadRecentOrders(api);
+      try {
+        const resProd = await api.get('/products/');
+        setProducts(resProd.data);
+      } catch (e) {
+        showToast('Erro ao carregar produtos. Verifique conexão.', 'error');
+      }
+      await loadRecentOrders(api);
       wsInstance = await connectOrdersWS(() => loadRecentOrders(api));
     })();
     return () => {
@@ -155,10 +160,19 @@ function Balcao() {
 
   async function loadRecentOrders(apiInstance?: any) {
     const api = apiInstance || await getApi();
-    // Busca todos os pedidos, não apenas os pendentes
-    const res = await api.get('/orders');
-    // Ordena por data de criação (mais recentes primeiro) e limita a 10
-    setRecentOrders(res.data.sort((a: Order, b: Order) => (b.created_at && a.created_at ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : 0)).slice(0, 10));
+    try {
+      // Busca todos os pedidos, não apenas os pendentes
+      const res = await api.get('/orders/');
+      // Ordena por data de criação (mais recentes primeiro) e limita a 10
+      setRecentOrders(res.data.sort((a: Order, b: Order) => (b.created_at && a.created_at ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : 0)).slice(0, 10));
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        showToast('Faça login para ver pedidos recentes.', 'error');
+      } else {
+        showToast('Erro ao carregar pedidos recentes.', 'error');
+      }
+      setRecentOrders([]);
+    }
   }
 
   useEffect(() => {

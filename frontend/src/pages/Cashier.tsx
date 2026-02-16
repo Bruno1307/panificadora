@@ -1,6 +1,6 @@
 import { useToast } from '../components/Toast';
 // ...existing code...
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import EditOrderModal from './EditOrderModal';
 // import { api } from '../api';
 import { getApi } from '../api';
@@ -21,6 +21,14 @@ type Order = {
   payment_method?: string;
 };
 
+// Ações pendentes para máxima persistência
+type PendingAction = {
+  kind: 'cancel' | 'pay';
+  orderId: number;
+  method?: 'dinheiro' | 'pix' | 'débito' | 'crédito';
+  headers?: Record<string, string>;
+};
+
 // Função utilitária para calcular total do pedido
 function total(order: Order, products: Product[] = []): number {
   return order.items.reduce((sum, item) => {
@@ -32,6 +40,7 @@ function total(order: Order, products: Product[] = []): number {
 export default function Cashier() {
   // ...existing code...
   const { showToast } = useToast();
+  const wsRef = useRef<WebSocket | null>(null);
   // Função para imprimir recibo em PDF
   function imprimirRecibo(orderId: number) {
     const order = orders.find(o => o.id === orderId);
@@ -115,101 +124,6 @@ export default function Cashier() {
     window.addEventListener('pedidoEnviadoAoCaixa', atualizarPedidos);
     return () => window.removeEventListener('pedidoEnviadoAoCaixa', atualizarPedidos);
   }, []);
-
-// Tipos básicos
-type Product = { id: number; name: string; price: number };
-type OrderItem = { product_id: number; quantity: number };
-type Order = {
-  id: number;
-  order_number?: number;
-  status: string;
-  customer_name?: string;
-  table_ref?: string;
-  items: OrderItem[];
-  payment_method?: string;
-};
-
-// Função utilitária para calcular total do pedido
-function total(order: Order, products: Product[] = []): number {
-  return order.items.reduce((sum, item) => {
-    const p = products.find(p => p.id === item.product_id);
-    return sum + (p ? p.price * item.quantity : 0);
-  }, 0);
-        // Tradução dos métodos de pagamento
-        const pagamentoLabels: Record<string, string> = { 'dinheiro': 'Dinheiro', 'pix': 'Pix', 'débito': 'Débito', 'credito': 'Crédito', 'crédito': 'Crédito' };
-        // Cria HTML do recibo
-        // Corrigir valores zerados usando o preço do produto se unit_price for 0
-        const htmlItens = order.items.map((it) => {
-          const prod = products.find((p: Product) => p.id === it.product_id);
-          const name = prod?.name || `Item ${it.product_id}`;
-          const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
-          return `<div style='display:flex;justify-content:space-between'><span>${name} x${it.quantity}</span><span>R$ ${(unitPrice * it.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>`;
-        }).join('');
-        const total = order.items.reduce((s: number, it) => {
-          const prod = products.find((p: Product) => p.id === it.product_id);
-          const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
-          return s + unitPrice * it.quantity;
-        }, 0);
-        const html = `
-          <div style='width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:flex-start;background:var(--bg);'>
-            <div style='padding:28px 16px;font-family:sans-serif;max-width:340px;width:340px;font-size:19px;line-height:1.5;background:var(--card);border-radius:14px;box-shadow:0 2px 12px #0001; margin-left:18vw; text-align:center;'>
-              <h3 style='text-align:center;margin:0 0 6px 0;font-size:24px;'>Padaria Jardim</h3>
-              <div style='text-align:center;margin-bottom:12px;font-size:18px;'>Pedido #${order.order_number}</div>
-              <div style='text-align:left;'>Cliente: ${order.customer_name || '-'}</div>
-              <div style='text-align:left;'>Mesa: ${order.table_ref || '-'}</div>
-              <div style='text-align:left;'>Pagamento: ${pagamentoLabels[order.payment_method as string] || order.payment_method || '-'} ${dataAtual}</div>
-              <hr style='margin:14px 0' />
-              <div style='text-align:left;'>
-                ${order.items.map((it: any) => {
-                  const prod = products.find((p: Product) => p.id === it.product_id);
-                  const name = prod?.name || `Item ${it.product_id}`;
-                  const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
-                  let valor = (unitPrice * it.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                  return `<div style='display:flex;justify-content:space-between'><span>${name} x${it.quantity}</span><span>R$ ${valor}</span></div>`;
-                }).join('')}
-              </div>
-              <hr style='margin:14px 0' />
-              <div style='display:flex;justify-content:space-between;font-weight:700;font-size:22px;margin-top:12px;'><span>Total da compra</span><span>R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-            </div>
-          </div>
-        `;
-        // Carrega html2pdf dinamicamente se não estiver presente
-        function gerarPDF() {
-          try {
-            if (!window.html2pdf) {
-              alert('Atenção: window.html2pdf não está disponível no momento da geração do PDF.');
-              console.error('window.html2pdf não está disponível!');
-              return;
-            }
-            // @ts-ignore
-            window.html2pdf().set({ filename: `recibo-pedido-${order.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
-            alert('Comando para gerar PDF executado. Se não baixar, verifique bloqueio de popups/downloads.');
-            console.log('Comando window.html2pdf().from(...).save() executado.');
-          } catch (e) {
-            alert('Erro ao gerar PDF do recibo. Tente novamente ou verifique se o navegador permite downloads automáticos.');
-            console.error('Erro ao gerar PDF:', e);
-          }
-        }
-        // @ts-ignore
-        if (!window.html2pdf) {
-          alert('window.html2pdf não está disponível, carregando biblioteca...');
-          console.log('window.html2pdf não está disponível, carregando /html2pdf.bundle.min.js');
-          const script = document.createElement('script');
-          script.src = '/html2pdf.bundle.min.js';
-          script.onload = () => {
-            alert('Biblioteca html2pdf carregada! Tentando gerar PDF...');
-            console.log('Biblioteca html2pdf carregada!');
-            gerarPDF();
-          };
-          script.onerror = () => {
-            alert('Erro ao carregar a biblioteca de PDF. Verifique sua conexão ou recarregue a página.');
-            console.error('Erro ao carregar /html2pdf.bundle.min.js');
-          };
-          document.body.appendChild(script);
-        } else {
-          gerarPDF();
-        }
-      }
     // Mapeamento de status para português
     const statusLabels: Record<string, string> = {
       pending: 'Pendente',
@@ -222,8 +136,17 @@ function total(order: Order, products: Product[] = []): number {
   const [products, setProducts] = useState<Product[]>([]);
   const [status, setStatus] = useState<string>('');
   const [q, setQ] = useState<string>('');
-  const [start, setStart] = useState<string>('');
-  const [end, setEnd] = useState<string>('');
+  // Por padrão, filtrar por hoje
+  function formatDateYYYYMMDD(d: Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  const todayStr = formatDateYYYYMMDD(new Date());
+  // Filtrar por hoje por padrão (apenas pedidos do dia)
+  const [start, setStart] = useState<string>(todayStr);
+  const [end, setEnd] = useState<string>(todayStr);
   const [sums, setSums] = useState<{ total: number; count: number }>({ total: 0, count: 0 });
   const [cashierToken, setCashierToken] = useState<string>(() => localStorage.getItem('cashierToken') || '');
   const [pixKey, setPixKey] = useState<string>('61629638000180');
@@ -237,6 +160,13 @@ function total(order: Order, products: Product[] = []): number {
   const [productSearch, setProductSearch] = useState<string>('');
   const [method, setMethod] = useState<'dinheiro' | 'pix' | 'débito' | 'crédito'>('dinheiro');
   const [cashReceivedRaw, setCashReceivedRaw] = useState<string>('');
+  const [loadError, setLoadError] = useState<string>('');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
+  const [roleInfo] = useState<string>(() => localStorage.getItem('role') || '');
+  const roleLower = (roleInfo || '').toLowerCase();
+  const isGerente = roleLower === 'gerente';
+  const isCaixa = roleLower === 'caixa';
+  const isPrivileged = isGerente || isCaixa; // perfis que não precisam de X-Cashier-Token
 
   // Carregar pedidos e produtos
   async function load() {
@@ -246,18 +176,78 @@ function total(order: Order, products: Product[] = []): number {
     if (q) params.q = q;
     if (start) params.start = start;
     if (end) params.end = end;
-    const api = await getApi();
-    const resOrders = await api.get('/orders', { params });
-    setOrders(resOrders.data || []);
-    const resProducts = await api.get('/products');
-    setProducts(resProducts.data || []);
-    // Atualiza somatórios
-    let totalSum = 0;
-    (resOrders.data || []).forEach((o: Order) => {
-      totalSum += total(o, resProducts.data || []);
-    });
-    setSums({ total: totalSum, count: (resOrders.data || []).length });
+    setLoadError('');
+    try {
+      const api = await getApi();
+      // Carrega pedidos
+      const resOrders = await api.get('/orders/', { params });
+      const loadedOrders: Order[] = resOrders.data || [];
+      // Em "Todos", nunca troca para pendentes automaticamente; mantém exatamente o retorno do backend
+      setOrders(loadedOrders);
+      // Carrega produtos independentemente; não bloquear pedidos se falhar
+      try {
+        const resProducts = await api.get('/products/');
+        const prods = resProducts.data || [];
+        setProducts(prods);
+        let totalSum = 0;
+        loadedOrders.forEach((o: Order) => { totalSum += total(o, prods); });
+        setSums({ total: totalSum, count: loadedOrders.length });
+      } catch (e) {
+        setLoadError('Produtos não carregados. Verifique conexão e login.');
+      }
+    } catch (e) {
+      setLoadError('Falha ao carregar pedidos. Verifique conexão e login.');
+    }
   }
+
+  // ---- Persistência máxima: fila de ações pendentes ----
+  function loadQueue(): PendingAction[] {
+    try {
+      const raw = localStorage.getItem('cashierQueue');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveQueue(list: PendingAction[]) {
+    try { localStorage.setItem('cashierQueue', JSON.stringify(list)); } catch {}
+  }
+  async function flushQueue() {
+    const queue = loadQueue();
+    if (queue.length === 0) { setSyncStatus('idle'); return; }
+    setSyncStatus('syncing');
+    const api = await getApi();
+    const next: PendingAction[] = [];
+    for (const item of queue) {
+      try {
+        const headers = item.headers || {};
+        if (item.kind === 'cancel') {
+          await api.post(`/orders/${item.orderId}/cancel`, {}, { headers });
+          setOrders(prev => prev.map(o => o.id === item.orderId ? { ...o, status: 'cancelled' } : o));
+        } else if (item.kind === 'pay') {
+          await api.post(`/orders/${item.orderId}/pay`, { method: item.method }, { headers });
+          setOrders(prev => prev.map(o => o.id === item.orderId ? { ...o, status: 'paid', payment_method: item.method } : o));
+        }
+      } catch (e: any) {
+        const status = e?.response?.status;
+        // Se for erro de cliente (4xx), descarta e alerta; senão mantém para próximo flush
+        if (status && status < 500) {
+          // Opcional: exibir toast informando que a ação foi descartada
+        } else {
+          next.push(item);
+        }
+      }
+    }
+    saveQueue(next);
+    setSyncStatus(next.length === 0 ? 'idle' : 'error');
+  }
+  useEffect(() => {
+    // Tenta flush imediato e em intervalo de 5s
+    flushQueue();
+    const t = window.setInterval(() => { flushQueue(); }, 5000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Atualizar pedidos automaticamente ao mudar o filtro de status
 
@@ -269,7 +259,74 @@ function total(order: Order, products: Product[] = []): number {
 
   useEffect(() => {
     load();
-    connectOrdersWS(() => load());
+    let mounted = true;
+    // Polling leve como fallback (a cada 10s)
+    const poller = window.setInterval(() => { if (mounted) load(); }, 3000);
+    const onWsMessage = async (ev: MessageEvent) => {
+      if (!mounted) return;
+      try {
+        const data = JSON.parse(String(ev.data || ''));
+        if (!data || !data.type || typeof data.id !== 'number') {
+          return;
+        }
+        const api = await getApi();
+        if (data.type === 'order_created' || data.type === 'order_updated') {
+          try {
+            const res = await api.get(`/orders/${data.id}`);
+            const ord: Order = res.data;
+            // Se filtro for pendente ou todos, insere/atualiza
+            if (!status || status === ord.status) {
+              setOrders(prev => {
+                const exists = prev.some(o => o.id === ord.id);
+                const updated = prev.map(o => o.id === ord.id ? ord : o);
+                return exists ? updated : [ord, ...prev];
+              });
+            }
+          } catch {
+            // fallback: recarrega lista completa
+            load();
+          }
+        } else if (data.type === 'order_paid' || data.type === 'order_cancelled') {
+          const newStatus = data.type === 'order_paid' ? 'paid' : 'cancelled';
+          setOrders(prev => {
+            const exists = prev.some(o => o.id === data.id);
+            if (exists) {
+              const updated = prev.map(o => o.id === data.id ? { ...o, status: newStatus } : o);
+              return status === 'pending' ? updated.filter(o => o.status === 'pending') : updated;
+            }
+            // Se não existe na lista atual (ex.: filtro 'todos' ou lista vazia), busca do backend e insere
+            // Mantém consistência mesmo sem refetch completo
+            (async () => {
+              try {
+                const res = await api.get(`/orders/${data.id}`);
+                const ord: Order = res.data;
+                setOrders(curr => {
+                  const withNew = [ord, ...curr.filter(o => o.id !== ord.id)];
+                  return status === 'pending' ? withNew.filter(o => o.status === 'pending') : withNew;
+                });
+              } catch {
+                // fallback: recarrega lista completa
+                load();
+              }
+            })();
+            return prev;
+          });
+        }
+      } catch {
+        // Em caso de payload inesperado, recarrega
+        load();
+      }
+    };
+    (async () => {
+      const ws = await connectOrdersWS(onWsMessage);
+      wsRef.current = ws;
+    })();
+    return () => {
+      mounted = false;
+      window.clearInterval(poller);
+      try { wsRef.current?.close(); } catch {}
+      wsRef.current = null;
+    };
   }, []);
 
   // Edição de pedido
@@ -351,11 +408,43 @@ function total(order: Order, products: Product[] = []): number {
   }
 
   async function cancel(orderId: number) {
-    const api = await getApi();
-    await api.post(`/orders/${orderId}/cancel`, {}, {
-      headers: cashierToken ? { 'X-Cashier-Token': cashierToken } : undefined,
-    })
-    await load()
+    try {
+      const api = await getApi();
+      // Para gerente/caixa, não enviar X-Cashier-Token
+      const headers = !isPrivileged && cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
+      // Retry para máxima persistência
+      let lastErr: any = null;
+      for (let i = 0; i < 3; i++) {
+        try {
+          await api.post(`/orders/${orderId}/cancel`, {}, { headers });
+          lastErr = null;
+          break;
+        } catch (e: any) {
+          lastErr = e;
+          const status = e?.response?.status;
+          if (status && status < 500) break;
+          await new Promise(res => setTimeout(res, 300 * (i + 1)));
+        }
+      }
+      if (lastErr) {
+        // Enfileira ação para retry em background
+        const queue = loadQueue();
+        queue.push({ kind: 'cancel', orderId, headers });
+        saveQueue(queue);
+      }
+      // Atualiza UI de forma otimista
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'cancelled' } : o));
+      if (status === 'pending') {
+        setOrders(prev => prev.filter(o => o.status === 'pending'));
+      }
+      showToast('Pedido cancelado.', 'success');
+      await load();
+    } catch (err: any) {
+      let msg = 'Erro ao cancelar pedido.';
+      if (err?.response?.data?.detail) msg += ' ' + err.response.data.detail;
+      showToast(msg, 'error');
+      console.error('Erro ao cancelar pedido:', err);
+    }
   }
 
   const payingTotal = payingOrder ? total(payingOrder, products) : 0
@@ -363,15 +452,30 @@ function total(order: Order, products: Product[] = []): number {
 
   async function confirmPayment() {
     if (!payingOrder) return;
-    // Se o token estiver vazio, não envia o header
-    const headers = cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
+    // Para gerente/caixa, não enviar X-Cashier-Token
+    const headers = !isPrivileged && cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
     console.log('Enviando pagamento com token:', cashierToken);
     const api = await getApi();
-    await api.post(
-      `/orders/${payingOrder.id}/pay`,
-      { method },
-      { headers }
-    );
+    // Retry para máxima persistência
+    let lastErr: any = null;
+    for (let i = 0; i < 3; i++) {
+      try {
+        await api.post(`/orders/${payingOrder.id}/pay`, { method }, { headers });
+        lastErr = null;
+        break;
+      } catch (e: any) {
+        lastErr = e;
+        const status = e?.response?.status;
+        if (status && status < 500) break;
+        await new Promise(res => setTimeout(res, 300 * (i + 1)));
+      }
+    }
+    if (lastErr) {
+      // Enfileira ação para retry em background
+      const queue = loadQueue();
+      queue.push({ kind: 'pay', orderId: payingOrder.id, method, headers });
+      saveQueue(queue);
+    }
     setPayingOrder(null);
     await load();
   }
@@ -463,11 +567,18 @@ function total(order: Order, products: Product[] = []): number {
           <input className="input" type="date" value={end} onChange={e=>setEnd(e.target.value)} />
         </label>
         <button className="button" onClick={load}>Atualizar</button>
+        {loadError && <span style={{ color:'#ef4444', marginLeft: 8 }}>{loadError}</span>}
+        <span className="item-meta" style={{ marginLeft: 12 }}>Perfil: {roleInfo || '—'} · Pedidos carregados: {orders.length}</span>
+        <span className="item-meta" style={{ marginLeft: 12, color: syncStatus==='error' ? '#ef4444' : '#888' }}>
+          {syncStatus === 'syncing' ? 'Sincronizando ações…' : syncStatus === 'error' ? 'Ações pendentes' : 'Sincronizado'}
+        </span>
         {/* <div style={{ marginLeft: 'auto' }}>
           <strong>Total: R$ {sums.total.toFixed(2)}</strong> — Pedidos: {sums.count}
         </div> */}
         <div style={{ display:'flex', gap:8, alignItems:'center', marginLeft: 'auto' }}>
-          <input className="input" placeholder="Token do caixa" value={cashierToken} readOnly style={{ width: 220 }} />
+          {!isPrivileged && (
+            <input className="input" placeholder="Token do caixa" value={cashierToken} readOnly style={{ width: 220 }} />
+          )}
           <input className="input" placeholder="Chave Pix (CNPJ, email, etc)" value={pixKey} readOnly style={{ width: 220 }} />
           <input className="input" placeholder="Nome cadastrado Pix" value={pixName} readOnly style={{ width: 220 }} />
           <input className="input" placeholder="Cidade Pix" value={pixCity} readOnly style={{ width: 140 }} />
@@ -485,6 +596,16 @@ function total(order: Order, products: Product[] = []): number {
                   <>
                     <button className="button success" onClick={() => markPaid(o.id)}>Receber</button>
                     <button className="button" onClick={() => setEditOrderFields(o)}>Editar</button>
+                    {isGerente && (
+                      <button
+                        className="button danger"
+                        onClick={() => {
+                          if (confirm(`Cancelar o pedido #${o.order_number}?`)) {
+                            cancel(o.id);
+                          }
+                        }}
+                      >Cancelar</button>
+                    )}
                   </>
                 )}
                 {o.status === 'paid' && (

@@ -4,12 +4,14 @@ services:
     image: nginx:latest
     container_name: nginx-proxy
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-  backend:
-    image: padaria-backend:latest # ou use o build do seu backend
-    container_name: padaria-backend
-    ports:
-      - "8000:8000"
-    # ...outras configurações do backend
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    networks:
+      - padaria_net
+
+networks:
+  padaria_net:
+    external: true
+    name: panificadora_padaria_net

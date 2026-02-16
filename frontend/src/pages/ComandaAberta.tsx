@@ -38,6 +38,7 @@ export default function ComandaAberta() {
   });
   const [novaLoading, setNovaLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [roleInfo] = useState<string>(() => localStorage.getItem('role') || '');
   const [cliente, setCliente] = useState('');
   const [mesa, setMesa] = useState('');
   const [showNova, setShowNova] = useState(false);
@@ -64,7 +65,14 @@ export default function ComandaAberta() {
       const { data } = await api.get('/comandas/abertas', { headers });
       setComandas(data);
     } catch (e) {
-      setMsg('Erro ao carregar comandas');
+      const status = (e as any)?.response?.status;
+      if (status === 401) {
+        setMsg('Acesso não autorizado. Faça login para ver comandas.');
+      } else if (status === 403) {
+        setMsg('Acesso negado: requer papel Balconista ou Gerente.');
+      } else {
+        setMsg('Erro ao carregar comandas');
+      }
     } finally {
       setLoading(false);
     }
@@ -103,10 +111,15 @@ export default function ComandaAberta() {
       setShowNova(false); setCliente(''); setMesa('');
       loadComandas()
     } catch (e) {
-      const errorMsg = (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data)
-        ? (e as any).response.data.detail
-        : (e instanceof Error ? e.message : String(e));
-      setMsg(errorMsg || 'Erro ao abrir comanda');
+      const status = (e as any)?.response?.status;
+      if (status === 403) {
+        setMsg('Acesso negado: apenas Balconista/Gerente podem abrir comanda.');
+      } else {
+        const errorMsg = (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data)
+          ? (e as any).response.data.detail
+          : (e instanceof Error ? e.message : String(e));
+        setMsg(errorMsg || 'Erro ao abrir comanda');
+      }
     } finally { setNovaLoading(false) }
   }
   // Fila offline/local para itens não enviados
@@ -146,6 +159,10 @@ export default function ComandaAberta() {
       await api.post(`/comandas/${comandaId}/adicionar_item`, { product_id: Number(produtoId), quantity: Number(qtd) })
       setProdutoId(''); setQtd(1); setComandaSel(null); loadComandas()
     } catch (e) {
+      if ((e as any)?.response?.status === 403) {
+        setMsg('Acesso negado: apenas Balconista/Gerente podem adicionar itens.');
+        return;
+      }
       // Se falhar, salva na fila offline/local
       const queue = getOfflineQueue();
       queue.push({ comandaId, productoId: Number(produtoId), qtd: Number(qtd) });
@@ -162,7 +179,9 @@ export default function ComandaAberta() {
       setMsg('Comanda fechada com sucesso!')
       loadComandas()
     } catch (e) {
-      if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data) {
+      if ((e as any)?.response?.status === 403) {
+        setMsg('Acesso negado: apenas Balconista/Gerente podem fechar comanda.');
+      } else if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response && e.response.data && typeof e.response.data === 'object' && 'detail' in e.response.data) {
         setMsg('Erro ao fechar comanda: ' + (e as any).response.data.detail);
       } else if (e instanceof Error && e.message) {
         setMsg('Erro ao fechar comanda: ' + e.message);
@@ -174,6 +193,7 @@ export default function ComandaAberta() {
 
   return (
     <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
+      <div style={{marginBottom:12,fontSize:14,color:'#555'}}>Papel atual: <strong>{roleInfo || 'desconhecido'}</strong> {roleInfo && roleInfo !== 'balconista' && roleInfo !== 'gerente' ? '— Comandas exigem Balconista ou Gerente' : ''}</div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
         <button
           className={tab === 'balcao' ? 'button primary' : 'button'}

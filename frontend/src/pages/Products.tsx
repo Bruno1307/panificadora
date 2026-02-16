@@ -36,7 +36,10 @@ export default function Products() {
         barcode: searchBarcode || undefined,
       },
     })
-    setProducts(data)
+    const sorted = [...data].sort((a, b) =>
+      (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+    )
+    setProducts(sorted)
   }
   useEffect(() => { load() }, [searchQ, searchBarcode])
 

@@ -5,7 +5,7 @@ from ..models import UserRole
 import os
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from ..db import get_db
 from .. import models, schemas
@@ -26,10 +26,21 @@ def list_orders(
     query = db.query(models.Order)
     if status:
         query = query.filter(models.Order.status == status)
-    if start:
-        query = query.filter(models.Order.created_at >= start)
-    if end:
-        query = query.filter(models.Order.created_at <= end)
+    # Ajuste de datas: tratar `start`/`end` como horário local e converter para UTC
+    # Considera fuso UTC-3 (Brasil) como padrão
+    if start or end:
+        LOCAL_OFFSET = timedelta(hours=-3)  # UTC-3
+        def to_utc(dt: datetime) -> datetime:
+            return (dt - LOCAL_OFFSET).replace(tzinfo=None)
+        if start:
+            local_start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_utc = to_utc(local_start)
+            query = query.filter(models.Order.created_at >= start_utc)
+        if end:
+            # Torna `end` inclusivo até o fim do dia local
+            local_end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
+            end_utc = to_utc(local_end)
+            query = query.filter(models.Order.created_at <= end_utc)
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -120,9 +131,25 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
     return order
 
 @router.post("/{order_id}/cancel", response_model=schemas.Order)
-def cancel_order(order_id: int, request: Request, db: Session = Depends(get_db)):
+def cancel_order(order_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     token = os.getenv("CASHIER_TOKEN")
-    if token:
+    # Permite cancelar sem token para usuários autenticados com papel 'gerente' ou 'caixa'
+    # Robustez: aceita comparar tanto Enum quanto string
+    require_token = True
+    try:
+        role_obj = getattr(user, "role", None)
+        role_name = None
+        if role_obj is not None:
+            # Se Enum, usa .value; se string, mantém
+            role_name = getattr(role_obj, "value", role_obj)
+        if isinstance(role_name, str):
+            if role_name.lower() in {"gerente", "caixa"}:
+                require_token = False
+        elif role_obj in {UserRole.gerente, UserRole.caixa}:
+            require_token = False
+    except Exception:
+        require_token = True
+    if token and require_token:
         header = request.headers.get("X-Cashier-Token")
         if header != token:
             raise HTTPException(status_code=403, detail="Cashier token required or invalid")

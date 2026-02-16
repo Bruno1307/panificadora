@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 from ..db import get_db
-from ..models import Order, OrderItem
+from ..models import Order, OrderItem, Product
 from ..deps_auth import require_role
 
 router = APIRouter(prefix="/indicators", tags=["indicators"])
@@ -104,3 +104,34 @@ def get_revenue(
         "payment_totals_monthly": payment_totals_monthly,
         "payment_totals_yearly": payment_totals_yearly,
     }
+
+@router.get("/sold_count")
+def get_sold_count(
+    name: str = Query(..., description="Nome do produto (trecho) para filtrar, ex: 'careca'"),
+    db: Session = Depends(get_db),
+    user=Depends(require_role("gerente", "admin")),
+):
+    """Retorna a quantidade vendida hoje (status 'paid') do produto cujo nome contém o trecho informado.
+
+    - Considera o dia atual no fuso local (UTC-3) e compara com `paid_at` (UTC) dos pedidos.
+    - Usa filtro por nome com `ilike` (case-insensitive).
+    """
+    from datetime import timezone, timedelta as td
+    LOCAL_OFFSET = td(hours=-3)  # UTC-3
+    def to_utc(dt):
+        return (dt - LOCAL_OFFSET).replace(tzinfo=None)
+
+    now = datetime.now()
+    local_start_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_day = to_utc(local_start_day)
+
+    q = (
+        db.query(func.sum(OrderItem.quantity))
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(Product, Product.id == OrderItem.product_id)
+        .filter(Order.status == "paid")
+        .filter(Order.paid_at >= start_day)
+        .filter(Product.name.ilike(f"%{name}%"))
+    )
+    total_qty = int(q.scalar() or 0)
+    return {"name_filter": name, "sold_today": total_qty}

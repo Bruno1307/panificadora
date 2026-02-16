@@ -7,6 +7,7 @@
 #   make frontend-stop
 
 UVICORN := .venv/bin/uvicorn
+PYTHON := .venv/bin/python
 BACKEND := backend
 FRONTEND := frontend
 HOST := 0.0.0.0
@@ -14,7 +15,7 @@ PORT := 8000
 CASHIER_TOKEN ?= caixa123
 
 .PHONY: backend-start backend-stop backend-health frontend-install frontend-start frontend-stop status \
-	frontend-build-docker frontend-prod-up frontend-release-docker
+	frontend-build-docker frontend-prod-up frontend-release-docker reset-default-passwords
 
 backend-start:
 	@pkill -f "uvicorn app.main:app" || true
@@ -28,7 +29,7 @@ backend-stop:
 	@echo "Backend stopped"
 
 backend-health:
-	@curl -sS http://localhost:$(PORT)/health || true
+	@curl -sS http://127.0.0.1:$(PORT)/health || true
 
 frontend-install:
 	@cd $(FRONTEND) && npm install
@@ -50,8 +51,9 @@ frontend-stop:
 	@pkill -f "vite --host" || pkill -f "vite" || true
 	@echo "Frontend stopped"
 
+
 status:
-	@echo "Backend health:" && curl -sS http://localhost:$(PORT)/health || true
+	@echo "Backend health:" && curl -sS http://$$(hostname -I | awk '{print $$1}'):$(PORT)/health || true
 	@echo "Vite URLs:" && tail -n 50 vite_dev.log || true
 
 # -----------------------------
@@ -71,3 +73,10 @@ frontend-prod-up:
 
 frontend-release-docker: frontend-build-docker frontend-prod-up
 	@echo "Release concluído: acesse http://$$(hostname -I | awk '{print $$1}'):4173/"
+
+# -----------------------------
+# Senhas padrão (admin/caixa/balconista)
+# -----------------------------
+reset-default-passwords:
+	@echo "Resetando senhas padrão (admin=admin123, caixa=caixa123, balconista=balcao123)"
+	@$(PYTHON) backend/set_default_passwords.py
