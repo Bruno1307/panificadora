@@ -6,6 +6,13 @@ set -euo pipefail
 # - PDV_URL, DUAL=1, KIOSK=0, GUEST_LEFT=1, GUEST_RIGHT=0, EXTRA_ARGS
 # - WINDOW_NAME_PATTERN optional (fallback for tiling)
 
+# Global disable guard: if set, keep service alive but do not launch
+if [[ "${DISABLE_PDV_BROWSER:-}" == "1" ]] || [[ -f "${HOME}/.config/pdv/disable_browser" ]]; then
+  echo "[pdv_service_runner] Navegador desativado (DISABLE_PDV_BROWSER/flag) — não iniciar/reiniciar PDV."
+  # Keep the unit active without launching or relaunch loops
+  sleep infinity
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 starter="${script_dir}/start_pdv_browser.sh"
 tiler="${script_dir}/position_pdv_windows.sh"

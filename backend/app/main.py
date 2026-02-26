@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db import engine, Base
 from .routers import products, orders, auth
-from .routers import voice
 from .ws import manager
 from contextlib import asynccontextmanager
 
@@ -69,7 +68,11 @@ app.include_router(indicators.router)
 app.include_router(comandas.router)
 app.include_router(categories.router)
 
-app.include_router(voice.router)
+# Voice (Whisper) opcional para evitar download em ambientes sem internet
+# Ative com ENABLE_VOICE=1 no ambiente
+if os.getenv("ENABLE_VOICE", "0") == "1":
+    from .routers import voice
+    app.include_router(voice.router)
 
 
 @app.websocket("/ws")

@@ -5,12 +5,11 @@ After=docker.service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/bruno/Panificadora Jardim/padaria-pdv
+WorkingDirectory=/home/bruno/panificadora
 
 # Remove containers antigos antes de subir
-ExecStartPre=/usr/bin/docker rm -f padaria-frontend || true
 ExecStartPre=/usr/bin/docker compose down --remove-orphans
-ExecStart=/usr/bin/docker compose up
+ExecStart=/usr/bin/docker compose up -d backend
 ExecStop=/usr/bin/docker compose down
 TimeoutStartSec=0
 Restart=on-failure

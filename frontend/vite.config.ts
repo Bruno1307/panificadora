@@ -7,9 +7,10 @@ export default defineConfig({
     port: 5173,
     open: false,
     host: true,
+    allowedHosts: ['padaria-pdv.local'],
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://padaria-pdv.local:8000',
         changeOrigin: true,
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, '')

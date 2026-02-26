@@ -16,12 +16,14 @@ def get_revenue(
     end: str = Query(None),
 ):
     print(f"[DEBUG] Usuário autenticado: {getattr(user, 'username', user)} | Papel: {getattr(user, 'role', user)}")
-    now = datetime.now()
+    # Baseia cálculos no horário local (UTC-3) derivado de UTC
+    from datetime import timezone, timedelta as td
+    LOCAL_OFFSET = td(hours=-3)  # UTC-3
+    now_utc = datetime.utcnow()
+    now = now_utc + LOCAL_OFFSET
     # Se start/end informados, usa o período customizado
     custom_start = None
     custom_end = None
-    from datetime import timezone, timedelta as td
-    LOCAL_OFFSET = td(hours=-3)  # UTC-3
     def to_utc(dt):
         return (dt - LOCAL_OFFSET).replace(tzinfo=None)
     if start:
@@ -49,10 +51,11 @@ def get_revenue(
         return q.scalar() or 0
 
     def payment_totals_for_period(start_date, end_date=None):
-        # Soma por método com base nos pagamentos registrados
-        q = db.query(OrderPayment.method, func.sum(OrderPayment.amount))\
-            .join(Order, Order.id == OrderPayment.order_id)\
+        q = (
+            db.query(OrderPayment.method, func.sum(OrderPayment.amount))
+            .join(Order, Order.id == OrderPayment.order_id)
             .filter(Order.status == "paid")
+        )
         if start_date:
             q = q.filter(Order.paid_at >= start_date)
         if end_date:
@@ -62,11 +65,13 @@ def get_revenue(
 
     # Períodos padrão (converter do horário local para UTC para comparar com paid_at em UTC)
     local_start_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    local_end_day = now.replace(hour=23, minute=59, second=59, microsecond=999999)
     local_start_week = local_start_day - timedelta(days=local_start_day.weekday())
     local_start_month = local_start_day.replace(day=1)
     local_start_year = local_start_day.replace(month=1, day=1)
 
     start_day = to_utc(local_start_day)
+    end_day = to_utc(local_end_day)
     start_week = to_utc(local_start_week)
     start_month = to_utc(local_start_month)
     start_year = to_utc(local_start_year)
@@ -87,14 +92,19 @@ def get_revenue(
             "payment_totals_yearly": {},
         }
     # Caso padrão (sem filtro)
-    daily = sum_period(start_day)
-    weekly = sum_period(start_week)
-    monthly = sum_period(start_month)
-    yearly = sum_period(start_year)
-    payment_totals_daily = payment_totals_for_period(start_day)
-    payment_totals_weekly = payment_totals_for_period(start_week)
-    payment_totals_monthly = payment_totals_for_period(start_month)
-    payment_totals_yearly = payment_totals_for_period(start_year)
+    # Usa intervalo fechado do dia local para evitar janela até 03:00 UTC
+    daily = sum_period(start_day, end_day)
+    # Para consistência, usa o fim do dia local como limite superior
+    end_week = end_day
+    end_month = end_day
+    end_year = end_day
+    weekly = sum_period(start_week, end_week)
+    monthly = sum_period(start_month, end_month)
+    yearly = sum_period(start_year, end_year)
+    payment_totals_daily = payment_totals_for_period(start_day, end_day)
+    payment_totals_weekly = payment_totals_for_period(start_week, end_week)
+    payment_totals_monthly = payment_totals_for_period(start_month, end_month)
+    payment_totals_yearly = payment_totals_for_period(start_year, end_year)
     return {
         "daily": float(daily),
         "weekly": float(weekly),

@@ -38,8 +38,7 @@ make status
 ```
 
 ### Acesso LAN
-- Use o IP da sua máquina na rede: http://SEU_IP:5173/ (ou :4173 no preview)
-- Descubra seu IP:
+ Use o IP da sua máquina na rede: http://10.90.115.251:5173/ (ou :4173 no preview)
 ```bash
 hostname -I | awk '{print $1}'
 ```

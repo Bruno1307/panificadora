@@ -16,8 +16,9 @@ mkdir -p "$autostart_dir"
 
 desktop_file="${autostart_dir}/pdv-kiosk.desktop"
 
-# Default to the requested IP URL unless PDV_URL is provided (no /login)
-default_url="http://10.62.212.251:4173/"
+# Prefer domain; if PDV_URL is unset, the starter will read frontend/public/config-domain.json and append /login
+# Legacy note: previously hardcoded to an IP like http://10.62.212.251:4173/
+default_url=""
 url_env="${PDV_URL:-$default_url}"
 # Dual window by default per request: right in guest
 dual_env="${DUAL:-1}"

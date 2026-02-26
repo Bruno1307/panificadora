@@ -20,8 +20,9 @@ mkdir -p "$unit_dir"
 
 unit_file="${unit_dir}/pdv-browser.service"
 
-# Defaults (no /login)
-default_url="http://10.62.212.251:4173/"
+# Defaults: let PDV_URL be empty so runner detects from frontend/public/config-domain.json and appends /login
+# Legacy note: previously hardcoded to IP like http://10.62.212.251:4173/
+default_url=""
 url_env="${PDV_URL:-$default_url}"
 dual_env="${DUAL:-0}"
 kiosk_env="${KIOSK:-0}"
@@ -39,6 +40,7 @@ session_type_env="${XDG_SESSION_TYPE:-x11}"
 lang_env="${LANG:-pt_BR.UTF-8}"
 lc_all_env="${LC_ALL:-pt_BR.UTF-8}"
 language_env="${LANGUAGE:-pt_BR.UTF-8}"
+disable_browser_env="${DISABLE_PDV_BROWSER:-1}"
 
 cat > "$unit_file" <<EOF
 [Unit]
@@ -65,6 +67,7 @@ Environment="WINDOW_NAME_PATTERN=${name_pattern_env}"
  Environment=LC_ALL=${lc_all_env}
  Environment=LANGUAGE=${language_env}
  Environment="PROFILE_DIR=${profile_env}"
+ Environment=DISABLE_PDV_BROWSER=${disable_browser_env}
 ExecStart=${runner}
 # ExecStartPost removido para evitar reposicionamento duplicado e trocas de foco
 # ExecStartPost=${tiler}

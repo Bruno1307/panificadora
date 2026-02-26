@@ -3,10 +3,9 @@
 > vite --host --port 5173
 
 
-  VITE v7.3.0  ready in 169 ms
+  VITE v7.3.1  ready in 267 ms
 
   ➜  Local:   http://localhost:5173/
-  ➜  Network: http://10.32.8.25:5173/
+  ➜  Network: http://10.62.212.251:5173/
+  ➜  Network: http://172.20.0.1:5173/
   ➜  Network: http://172.17.0.1:5173/
-19:12:40 [vite] (client) hmr update /src/pages/Cashier.tsx
-19:12:46 [vite] (client) hmr update /src/pages/Cashier.tsx

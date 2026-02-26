@@ -4,7 +4,8 @@ from ..deps_auth import require_role
 from ..models import UserRole
 import os
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, or_
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 from ..db import get_db
@@ -43,9 +44,21 @@ def list_orders(
             query = query.filter(models.Order.created_at <= end_utc)
     if q:
         like = f"%{q}%"
-        query = query.filter(
-            (models.Order.customer_name.ilike(like)) | (models.Order.table_ref.ilike(like))
-        )
+        # Sempre permite buscar por nome ou mesa/comanda
+        filters = [
+            models.Order.customer_name.ilike(like),
+            models.Order.table_ref.ilike(like),
+        ]
+        # Se a busca contiver dígitos, também tenta por número/id do pedido
+        digits = re.sub(r"\D", "", q or "")
+        if digits:
+            try:
+                num = int(digits)
+                filters.append(models.Order.order_number == num)
+                filters.append(models.Order.id == num)
+            except Exception:
+                pass
+        query = query.filter(or_(*filters))
     result = query.order_by(models.Order.created_at.desc()).all()
     print(f"[DEBUG] /orders retornou {len(result)} pedidos para o usuário {getattr(user, 'username', user)} (papel: {getattr(user, 'role', None)})")
     return result

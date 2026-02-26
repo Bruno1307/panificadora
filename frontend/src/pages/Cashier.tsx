@@ -460,6 +460,12 @@ export default function Cashier() {
   const debitPart = useMemo(() => parseFloat((debitPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [debitPartRaw])
   const creditPart = useMemo(() => parseFloat((creditPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [creditPartRaw])
   const partsSum = useMemo(() => cashPart + pixPart + debitPart + creditPart, [cashPart, pixPart, debitPart, creditPart])
+  const pixAmount = useMemo(() => {
+    if (!payingOrder) return 0
+    if (multiPay) return Math.max(0, Number(pixPart.toFixed(2)))
+    if (method === 'pix') return Math.max(0, Number(payingTotal.toFixed(2)))
+    return 0
+  }, [payingOrder, multiPay, pixPart, method, payingTotal])
 
   async function confirmPayment() {
     if (!payingOrder) return;
@@ -528,7 +534,7 @@ export default function Cashier() {
     let key = pixKey.replace(/\D/g, '');
     let name = (pixName || 'Panificadora Jardim').normalize('NFC').slice(0,25);
     let city = (pixCity || 'Macapá').normalize('NFC').slice(0,15);
-    let valorPix = Number(payingTotal);
+    let valorPix = Number(pixAmount.toFixed(2));
     console.log('[PIX DEBUG]', { key, name, city, valorPix, payingOrder });
     try {
       const qrPix = QrCodePix({
@@ -560,6 +566,15 @@ export default function Cashier() {
     return false
   }
 
+  // Memoiza o payload do QR Pix para garantir atualização imediata quando valores mudam
+  const qrPayload = useMemo(() => {
+    try {
+      return pixPayload();
+    } catch {
+      return '';
+    }
+  }, [multiPay, pixPart, method, payingOrder, pixKey, pixName, pixCity, pixAmount]);
+
   function formatCNPJ(key: string): string {
     const d = (key || '').replace(/\D/g, '')
     if (d.length !== 14) return key || '—'
@@ -576,7 +591,7 @@ export default function Cashier() {
           <option value="paid">Pago</option>
           <option value="cancelled">Cancelado</option>
         </select>
-        <input className="input" placeholder="Buscar nome/mesa" value={q} onChange={e=>setQ(e.target.value)} />
+        <input className="input" placeholder="Buscar nome/mesa/nº do pedido" value={q} onChange={e=>setQ(e.target.value)} />
         <label>
           <span className="item-meta">Início</span>
           <input className="input" type="date" value={start} onChange={e=>setStart(e.target.value)} />
@@ -854,9 +869,15 @@ export default function Cashier() {
                     />
                   </>
                 )}
-                <div className="item-meta">
-                  Total: R$ {payingTotal.toFixed(2)}
-                  {method === 'dinheiro' && <> · Troco: R$ {change.toFixed(2)}</>}
+                <div className="item-meta" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontWeight: 'bold', fontSize: 26, color: '#1976d2', background: '#e3f2fd', padding: '4px 12px', borderRadius: 6, marginBottom: 2, width: 'fit-content' }}>
+                    Total: R$ {payingTotal.toFixed(2)}
+                  </span>
+                  {method === 'dinheiro' && (
+                    <span style={{ fontWeight: 'bold', fontSize: 22, color: '#388e3c', background: '#e8f5e9', padding: '4px 12px', borderRadius: 6, width: 'fit-content' }}>
+                      Troco: R$ {change.toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -888,15 +909,13 @@ export default function Cashier() {
               </div>
             )}
 
-            {method === 'pix' && payingOrder && (() => {
-              try {
-                const payload = pixPayload();
-                return (
+            {(payingOrder && ((method === 'pix') || (multiPay && pixPart > 0))) && (
                   <div style={{ display:'flex', gap:16, alignItems:'center', justifyContent:'space-between' }}>
-                    <div style={{ background:'#fff', padding:12 }}>
-                      <QRCode value={payload} size={180} />
+                    <div style={{ background:'#fff', padding:12 }} key={qrPayload}>
+                      <QRCode value={qrPayload} size={180} key={qrPayload} />
                     </div>
                     <div style={{ flex:1 }}>
+                      <div className="item-meta"><b>Valor Pix:</b> R$ {pixAmount.toFixed(2)}</div>
                       <div className="item-meta">Chave Pix: {pixKey}</div>
                       <div className="item-meta">Nome: {pixName} · Cidade: {pixCity}</div>
                       <div style={{
@@ -911,15 +930,11 @@ export default function Cashier() {
                         textAlign:'left'
                       }}>
                         <b style={{color:'#111'}}>Payload Pix:</b><br/>
-                        <span>{payload}</span>
+                        <span>{qrPayload}</span>
                       </div>
                     </div>
                   </div>
-                );
-              } catch (e) {
-                return <div style={{color:'red'}}>Erro ao gerar payload Pix</div>;
-              }
-            })()}
+            )}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
               <button className="button" style={{background:'#eee',color:'#222',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer'}} onClick={closeModal}>Cancelar</button>
               <button

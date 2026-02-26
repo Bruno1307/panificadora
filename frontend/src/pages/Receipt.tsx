@@ -108,10 +108,18 @@ export default function Receipt() {
   }, [])
 
   const total = useMemo(() => order ? order.items.reduce((s, it) => s + it.unit_price * it.quantity, 0) : 0, [order])
+  const pixAmount = useMemo(() => {
+    if (!order) return 0
+    const parts = order.payments || []
+    const pixPartsSum = parts.filter(p => (p.method || '').toLowerCase() === 'pix').reduce((s, p) => s + Number(p.amount || 0), 0)
+    if (pixPartsSum > 0) return pixPartsSum
+    // caso simples: método único pix => usa total
+    if ((order.payment_method || '').toLowerCase() === 'pix') return total
+    return 0
+  }, [order, total])
   function pixPayload(): string {
     if (!order || !pixConfig) return ''
-    const txid = `PDV-${order.id}`
-    const amt = Number(total.toFixed(2))
+    const amt = Number(pixAmount.toFixed(2))
     // Trata chave CNPJ: remove caracteres não numéricos
     let pixKey = pixConfig.pix_key
     if (pixKey && pixKey.replace(/\D/g, '').length === 14) {
@@ -123,7 +131,6 @@ export default function Receipt() {
         key: pixKey,
         name: (pixConfig.pix_name || 'Panificadora Jardim').toUpperCase(),
         city: (pixConfig.pix_city || 'SAO PAULO').toUpperCase(),
-        transactionId: txid,
         value: amt,
       })
       return code.payload()
@@ -236,10 +243,10 @@ export default function Receipt() {
       <div style={{ fontWeight: 900, fontSize: 20, textAlign: 'right', marginBottom: 12, color: 'var(--text)', letterSpacing: 1 }}>
         Total: R$ {total.toFixed(2)}
       </div>
-      {order.payment_method === 'pix' && pixConfig && (
+      {pixAmount > 0 && pixConfig && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '16px 0' }}>
           <div style={{background:'#fff',padding:10,borderRadius:12,boxShadow:'0 2px 8px #0002',border:'2px solid #eee',display:'inline-block'}}>
-            <QRCode value={pixPayload()} size={148} bgColor="#fff" fgColor="#111" style={{display:'block',margin:'0 auto',borderRadius:8,border:'2px solid #ddd'}} />
+            <QRCode value={pixPayload()} key={pixPayload()} size={148} bgColor="#fff" fgColor="#111" style={{display:'block',margin:'0 auto',borderRadius:8,border:'2px solid #ddd'}} />
           </div>
           <div style={{
             marginTop: 14,

@@ -12,8 +12,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-- API docs: http://localhost:8000/docs
-- Banco padrão: SQLite `data.db` no diretório do backend. Para Postgres, defina `DB_URL` no ambiente (ex.: `postgresql+psycopg2://user:pass@localhost:5432/padaria`).
+- API docs: http://10.90.115.251:8000/docs
+- Banco padrão: SQLite `data.db` no diretório do backend. Para Postgres, defina `DB_URL` no ambiente (ex.: `postgresql+psycopg2://user:pass@10.90.115.251:5432/padaria`).
 
 ## Estrutura
 - `app/db.py`: engine, sessão e base.

@@ -2,6 +2,15 @@
 set -euo pipefail
 
 # Start the PDV URL in a browser. Supports kiosk, guest, and dual-window.
+# Global disable guard: set DISABLE_PDV_BROWSER=1 or create ~/.config/pdv/disable_browser
+if [[ "${DISABLE_PDV_BROWSER:-}" == "1" ]]; then
+  echo "PDV browser launch disabled by DISABLE_PDV_BROWSER=1"
+  exit 0
+fi
+if [[ -f "${HOME}/.config/pdv/disable_browser" ]]; then
+  echo "PDV browser launch disabled by flag file: ~/.config/pdv/disable_browser"
+  exit 0
+fi
 # Config via env vars:
 # - PDV_URL: full URL to open (default: from frontend/public/config-domain.json or http://panificadora.jardim/login)
 # - KIOSK=1: open in kiosk mode (fullscreen)

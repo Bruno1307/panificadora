@@ -71,6 +71,14 @@ frontend-prod-up:
 	@cd $(FRONTEND) && docker compose up -d --force-recreate frontend-prod
 	@docker compose ps || true
 
+frontend-prod-down:
+	@echo "Stopping frontend-prod (4173)"
+	@cd $(FRONTEND) && docker compose down --remove-orphans
+
+frontend-prod-logs:
+	@echo "Logs for frontend-prod (4173)"
+	@docker logs padaria-frontend-prod --since=1h || true
+
 frontend-release-docker: frontend-build-docker frontend-prod-up
 	@echo "Release concluído: acesse http://$$(hostname -I | awk '{print $$1}'):4173/"
 

@@ -1,10 +1,7 @@
-version: '3.8'
 services:
   backend:
     build: ./backend
     container_name: padaria-backend
-    ports:
-      - "8000:8000"
     volumes:
       - ./backend:/app
       - ./backend/data.db:/app/data.db
@@ -20,6 +17,8 @@ services:
     networks:
       padaria_net:
         ipv4_address: 172.20.0.10
+        aliases:
+          - backend
 
   frontend:
     build: ./frontend
