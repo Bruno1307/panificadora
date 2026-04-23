@@ -10,7 +10,7 @@ import { QrCodePix } from 'qrcode-pix';
 
 // Tipos básicos
 type Product = { id: number; name: string; price: number };
-type OrderItem = { product_id: number; quantity: number; unit_price?: number };
+type OrderItem = { product_id: number; quantity: number; unit_price?: number; product_name?: string };
 type Order = {
   id: number;
   order_number?: number;
@@ -43,8 +43,18 @@ export default function Cashier() {
   const { showToast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
   // Função para imprimir recibo em PDF
-  function imprimirRecibo(orderId: number) {
-    const order = orders.find(o => o.id === orderId);
+  async function imprimirRecibo(orderId: number) {
+    // Busca o pedido diretamente da API para garantir dados atualizados e completos,
+    // evitando folha em branco causada por estado React desatualizado ou sem itens.
+    let order: Order | null = null;
+    try {
+      const api = await getApi();
+      const res = await api.get(`/orders/${orderId}`);
+      order = res.data as Order;
+    } catch {
+      // Fallback: tenta pegar do estado local
+      order = orders.find(o => o.id === orderId) || null;
+    }
     if (!order) {
       showToast('Pedido não encontrado.', 'error');
       return;
@@ -65,31 +75,37 @@ export default function Cashier() {
       ? 'Pendente de pagamento'
       : (pagamentoLabels[order.payment_method as string] || order.payment_method || '-');
     const dataAtual = new Date().toLocaleString('pt-BR');
+    // HTML com cores fixas (sem var(--bg)/var(--card)) para garantir leitura no PDF
+    // independente de tema claro/escuro da aplicação
     const html = `
-      <div style='width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:flex-start;background:var(--bg);'>
-        <div style='padding:28px 16px;font-family:sans-serif;max-width:340px;width:340px;font-size:19px;line-height:1.5;background:var(--card);border-radius:14px;box-shadow:0 2px 12px #0001; margin-left:18vw; text-align:center;'>
-          <h3 style='text-align:center;margin:0 0 6px 0;font-size:24px;'>Padaria Jardim</h3>
-          <div style='text-align:center;margin-bottom:12px;font-size:18px;'>Pedido #${order.order_number}</div>
-          <div style='text-align:left;'>Cliente: ${order.customer_name || '-'}</div>
-          <div style='text-align:left;'>Mesa: ${order.table_ref || '-'}</div>
-          <div style='text-align:left;'>Status: ${statusPagamentoLabel}</div>
-          <div style='text-align:left;'>Pagamento: ${pagamentoLabel} ${dataAtual}</div>
-          <hr style='margin:14px 0' />
-          <div style='text-align:left;'>
-            ${order.items.map((it) => {
+      <div style='width:100%;padding:32px 20px;font-family:Arial,sans-serif;background:#ffffff;color:#1a1a1a;'>
+        <div style='max-width:360px;margin:0 auto;border:1px solid #e0e0e0;border-radius:12px;padding:28px 20px;background:#ffffff;'>
+          <h3 style='text-align:center;margin:0 0 4px 0;font-size:22px;color:#1a1a1a;'>Padaria Jardim</h3>
+          <div style='text-align:center;margin-bottom:14px;font-size:16px;color:#444;'>Pedido #${order.order_number}</div>
+          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Cliente: ${order.customer_name || '-'}</div>
+          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Mesa: ${order.table_ref || '-'}</div>
+          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Status: ${statusPagamentoLabel}</div>
+          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Pagamento: ${pagamentoLabel}</div>
+          <div style='font-size:13px;margin-bottom:4px;color:#888;'>${dataAtual}</div>
+          <hr style='margin:14px 0;border:none;border-top:1px solid #e0e0e0;' />
+          <div>
+            ${(order.items || []).map((it) => {
               const prod = products.find((p: Product) => p.id === it.product_id);
-              const name = prod?.name || `Item ${it.product_id}`;
-              const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
-              let valor = (unitPrice * it.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              return `<div style='display:flex;justify-content:space-between'><span>${name} x${it.quantity}</span><span>R$ ${valor}</span></div>`;
+              const name = it.product_name || prod?.name || `Item ${it.product_id}`;
+              const unitPrice = (it.unit_price && it.unit_price > 0) ? it.unit_price : (prod?.price || 0);
+              const valor = (unitPrice * it.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              return `<div style='display:flex;justify-content:space-between;font-size:15px;margin-bottom:4px;color:#222;'><span>${name} x${it.quantity}</span><span>R$ ${valor}</span></div>`;
             }).join('')}
           </div>
-          <hr style='margin:14px 0' />
-          <div style='display:flex;justify-content:space-between;font-weight:700;font-size:22px;margin-top:12px;'><span>Total da compra</span><span>R$ ${order.items.reduce((s: number, it) => {
-            const prod = products.find((p: Product) => p.id === it.product_id);
-            const unitPrice = it.unit_price && it.unit_price > 0 ? it.unit_price : (prod?.price || 0);
-            return s + unitPrice * it.quantity;
-          }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+          <hr style='margin:14px 0;border:none;border-top:1px solid #e0e0e0;' />
+          <div style='display:flex;justify-content:space-between;font-weight:700;font-size:18px;color:#1a1a1a;'>
+            <span>Total</span>
+            <span>R$ ${(order.items || []).reduce((s: number, it) => {
+              const prod = products.find((p: Product) => p.id === it.product_id);
+              const unitPrice = (it.unit_price && it.unit_price > 0) ? it.unit_price : (prod?.price || 0);
+              return s + unitPrice * it.quantity;
+            }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
         </div>
       </div>
     `;
@@ -112,7 +128,7 @@ export default function Cashier() {
           console.error('window.html2pdf não está disponível!');
           return;
         }
-        window.html2pdf().set({ filename: `recibo-pedido-${order.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
+        window.html2pdf().set({ filename: `recibo-pedido-${order!.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
       } catch (e) {
         showToast('Erro ao gerar PDF do recibo. Tente novamente ou verifique se o navegador permite downloads automáticos.', 'error');
         console.error('Erro ao gerar PDF:', e);
