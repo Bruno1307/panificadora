@@ -1,12 +1,65 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
+import os
+import subprocess
 from ..db import get_db
 from ..models import Order, OrderItem, Product, OrderPayment
 from ..deps_auth import require_role
 
 router = APIRouter(prefix="/indicators", tags=["indicators"])
+
+
+def _format_currency_br(value: float) -> str:
+    """Formata valor monetário em estilo brasileiro, ex: 12.5 -> '12,50'."""
+    return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _normalize_payment_label(method: str | None) -> str:
+    """Normaliza o nome da forma de pagamento para evitar problemas de acentuação no cupom."""
+    if not method:
+        return "INDEFINIDO"
+    m = method.strip().lower()
+    if m == "dinheiro":
+        return "DINHEIRO"
+    if m == "pix":
+        return "PIX"
+    if m in {"debito", "débito"}:
+        return "DEBITO"
+    if m in {"credito", "crédito"}:
+        return "CREDITO"
+    return method.upper()
+
+
+@router.get("/top-products")
+def get_top_products(
+    db: Session = Depends(get_db),
+    user=Depends(require_role("balconista", "gerente", "caixa", "admin")),
+    limit: int = 100,
+):
+    """Retorna os produtos mais vendidos (por quantidade), em ordem decrescente.
+
+    Considera apenas pedidos pagos, somando a quantidade de cada item.
+    """
+    query = (
+        db.query(
+            OrderItem.product_id,
+            func.sum(OrderItem.quantity).label("total_quantity"),
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(Order.status == "paid")
+        .group_by(OrderItem.product_id)
+        .order_by(func.sum(OrderItem.quantity).desc())
+        .limit(limit)
+    )
+
+    rows = query.all()
+    return [
+        {"product_id": product_id, "total_quantity": int(total or 0)}
+        for product_id, total in rows
+    ]
+
 
 @router.get("/revenue")
 def get_revenue(
@@ -115,6 +168,124 @@ def get_revenue(
         "payment_totals_monthly": payment_totals_monthly,
         "payment_totals_yearly": payment_totals_yearly,
     }
+
+
+@router.post("/revenue/print")
+def print_revenue_coupon(
+    db: Session = Depends(get_db),
+    user=Depends(require_role("gerente", "admin")),
+    start: str = Query(None),
+    end: str = Query(None),
+):
+    """Imprime no cupom o resumo de faturamento (período filtrado ou dia atual)."""
+    from datetime import timezone, timedelta as td
+
+    LOCAL_OFFSET = td(hours=-3)  # UTC-3, alinhado com get_revenue
+    now_utc = datetime.utcnow()
+    now_local = now_utc + LOCAL_OFFSET
+
+    # Converte datas de filtro (YYYY-MM-DD) em UTC para consultas
+    custom_start = None
+    custom_end = None
+
+    def to_utc(dt: datetime) -> datetime:
+        return (dt - LOCAL_OFFSET).replace(tzinfo=None)
+
+    if start:
+        try:
+            local_start = datetime.strptime(start, "%Y-%m-%d")
+            custom_start = to_utc(local_start)
+        except Exception as e:
+            print(f"[DEBUG] Erro ao parsear start em /revenue/print: {start} - {e}")
+            custom_start = None
+    if end:
+        try:
+            local_end = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
+            custom_end = to_utc(local_end)
+        except Exception as e:
+            print(f"[DEBUG] Erro ao parsear end em /revenue/print: {end} - {e}")
+            custom_end = None
+
+    def sum_period(start_date, end_date=None):
+        q = db.query(func.sum(OrderItem.unit_price * OrderItem.quantity)).join(Order).filter(Order.status == "paid")
+        if start_date:
+            q = q.filter(Order.paid_at >= start_date)
+        if end_date:
+            q = q.filter(Order.paid_at <= end_date)
+        return q.scalar() or 0
+
+    def payment_totals_for_period(start_date, end_date=None):
+        q = (
+            db.query(OrderPayment.method, func.sum(OrderPayment.amount))
+            .join(Order, Order.id == OrderPayment.order_id)
+            .filter(Order.status == "paid")
+        )
+        if start_date:
+            q = q.filter(Order.paid_at >= start_date)
+        if end_date:
+            q = q.filter(Order.paid_at <= end_date)
+        result = q.group_by(OrderPayment.method).all()
+        return {method or "Indefinido": float(total or 0) for method, total in result}
+
+    # Define o intervalo a ser usado
+    if custom_start or custom_end:
+        start_dt = custom_start
+        end_dt = custom_end
+        # Legenda do período baseada nos parâmetros originais
+        if start and end:
+            period_label = f"PERIODO: {start.split('-')[2]}/{start.split('-')[1]}/{start.split('-')[0]} - {end.split('-')[2]}/{end.split('-')[1]}/{end.split('-')[0]}"
+        elif start:
+            period_label = f"PERIODO A PARTIR DE: {start.split('-')[2]}/{start.split('-')[1]}/{start.split('-')[0]}"
+        elif end:
+            period_label = f"PERIODO ATE: {end.split('-')[2]}/{end.split('-')[1]}/{end.split('-')[0]}"
+        else:
+            period_label = now_local.strftime("DIA: %d/%m/%Y")
+    else:
+        # Sem filtro: usa o dia atual no fuso local
+        local_start_day = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        local_end_day = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+        start_dt = to_utc(local_start_day)
+        end_dt = to_utc(local_end_day)
+        period_label = local_start_day.strftime("DIA: %d/%m/%Y")
+
+    total_value = float(sum_period(start_dt, end_dt))
+    payment_totals = payment_totals_for_period(start_dt, end_dt)
+
+    # Monta texto ESC/POS
+    width = 40
+    lines: list[str] = []
+    lines.append("PANIFICADORA JARDIM".center(width))
+    lines.append("RESUMO FATURAMENTO".center(width))
+    lines.append("-" * width)
+    lines.append(period_label[:width])
+    lines.append(now_local.strftime("EMITIDO: %d/%m/%Y %H:%M:%S"))
+    lines.append("-" * width)
+    lines.append(f"TOTAL DO PERIODO: R$ {_format_currency_br(total_value)}")
+    lines.append("")
+    lines.append("POR FORMA DE PAGAMENTO:"[:width])
+
+    if payment_totals:
+        for method, val in sorted(payment_totals.items()):
+            label = _normalize_payment_label(method)
+            lines.append(f"{label}: R$ {_format_currency_br(float(val))}"[:width])
+    else:
+        lines.append("Nenhum valor registrado."[:width])
+
+    lines.append("")
+    lines.append("NAO FISCAL - USO INTERNO".center(width))
+    lines.append("")
+
+    body = "\n".join(lines) + "\n\n\n"
+    cut_cmd = b"\x1D\x56\x00"
+    data = body.encode("latin-1", errors="ignore") + cut_cmd
+
+    printer_name = os.getenv("TICKET_PRINTER_NAME", "Elgin_i9")
+    try:
+        subprocess.run(["lp", "-d", printer_name], input=data, check=True)
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=500, detail="Erro ao enviar faturamento para a impressora")
+
+    return {"status": "revenue_printed", "printer": printer_name, "total": total_value}
 
 @router.get("/sold_count")
 def get_sold_count(

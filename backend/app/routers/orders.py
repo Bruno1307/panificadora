@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from ..deps_auth import require_role
 from ..models import UserRole
 import os
+import subprocess
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 import re
@@ -14,6 +15,99 @@ from ..ws import manager
 from ..deps_auth import get_current_user
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+def _format_currency_br(value: float) -> str:
+    """Formata valor monetário em estilo brasileiro, ex: 12.5 -> '12,50'."""
+    return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _normalize_payment_label(method: str | None) -> str:
+    """Normaliza o nome da forma de pagamento para evitar problemas de acentuação no cupom.
+
+    Mantém o valor no banco com acento, mas imprime sem acentos (DEBITO, CREDITO, etc.).
+    """
+    if not method:
+        return "INDEFINIDO"
+    m = method.strip().lower()
+    if m == "dinheiro":
+        return "DINHEIRO"
+    if m == "pix":
+        return "PIX"
+    if m in {"debito", "débito"}:
+        return "DEBITO"
+    if m in {"credito", "crédito"}:
+        return "CREDITO"
+    return method.upper()
+
+
+def build_escpos_receipt(order: models.Order) -> bytes:
+    """Gera texto ESC/POS simples para a Elgin i9 com corte automático."""
+    width = 40
+    lines: list[str] = []
+
+    lines.append("PANIFICADORA JARDIM".center(width))
+    lines.append("CUPOM NAO FISCAL".center(width))
+    lines.append("-" * width)
+
+    ref = order.order_number or order.id
+    lines.append(f"PEDIDO: {ref}")
+    if order.table_ref:
+        lines.append(f"MESA/REF: {order.table_ref}")
+    if order.customer_name:
+        lines.append(f"CLIENTE: {order.customer_name}")
+
+    status_label = {
+        "pending": "A PAGAR",
+        "paid": "PAGO",
+        "cancelled": "CANCELADO",
+    }.get((order.status or "").lower(), (order.status or "-").upper())
+    lines.append(f"STATUS: {status_label}"[:width])
+
+    # Ajusta horário local (container está em UTC) usando offset configurável
+    try:
+        offset_h = int(os.getenv("LOCAL_TIME_OFFSET_HOURS", "-3"))
+    except Exception:
+        offset_h = -3
+    local_now = datetime.utcnow() + timedelta(hours=offset_h)
+    lines.append(local_now.strftime("DATA: %d/%m/%Y %H:%M:%S"))
+
+    lines.append("-" * width)
+    lines.append("ITEM                        ")
+    lines.append(" QTD  VL.UN   TOTAL".rjust(width))
+    lines.append("-" * width)
+
+    total = 0.0
+    for it in order.items:
+        name = it.product.name if getattr(it, "product", None) else f"ID {it.product_id}"
+        name = name[:width]  # evita quebrar demais
+        qty = it.quantity
+        unit = float(it.unit_price)
+        line_total = qty * unit
+        total += line_total
+
+        lines.append(name)
+        price_line = f"{qty:>3} x {_format_currency_br(unit):>7} = {_format_currency_br(line_total):>8}"
+        lines.append(price_line.rjust(width))
+
+    lines.append("-" * width)
+    lines.append(f"TOTAL: R$ {_format_currency_br(total)}".rjust(width))
+
+    if order.payment_method:
+        label = _normalize_payment_label(order.payment_method)
+        lines.append(f"PGTO: {label}"[:width])
+    if order.payments:
+        for p in order.payments:
+            label = _normalize_payment_label(p.method)
+            lines.append(f"{label}: R$ {_format_currency_br(float(p.amount))}"[:width])
+
+    lines.append("")
+    lines.append("OBRIGADO PELA PREFERENCIA!".center(width))
+    lines.append("")
+
+    text = "\n".join(lines) + "\n\n\n"
+    cut_cmd = b"\x1D\x56\x00"  # ESC/POS corte total
+    return text.encode("latin-1", errors="ignore") + cut_cmd
 
 @router.get("/", response_model=list[schemas.Order])
 def list_orders(
@@ -174,6 +268,48 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
     import anyio
     anyio.from_thread.run(manager.broadcast, {"type": "order_paid", "id": order.id, "status": order.status})
     return order
+
+
+@router.post("/{order_id}/print")
+def print_order(order_id: int, db: Session = Depends(get_db)):
+    """Imprime cupom nao fiscal do pedido (pendente ou pago) na Elgin i9 via CUPS.
+
+    OBS: rota sem autenticacao, pensada para uso interno no servidor do PDV.
+    Proteja com firewall/rede se necessario.
+    """
+    order = db.query(models.Order).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status not in {"pending", "paid"}:
+        raise HTTPException(status_code=400, detail="Only pending or paid orders can be printed")
+
+    data = build_escpos_receipt(order)
+    printer_name = os.getenv("TICKET_PRINTER_NAME", "Elgin_i9")
+    try:
+        subprocess.run(["lp", "-d", printer_name], input=data, check=True)
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=500, detail="Erro ao enviar cupom para a impressora")
+
+    return {"status": "printed", "printer": printer_name}
+
+
+@router.post("/print-test")
+def print_test_ticket():
+    """Imprime um cupom de teste curto na impressora de cupom."""
+    printer_name = os.getenv("TICKET_PRINTER_NAME", "Elgin_i9")
+    body = (
+        "TESTE PDV OK\n"
+        "PANIFICADORA JARDIM\n"
+        "------------------------------\n"
+        "Este eh apenas um teste curto.\n\n\n"
+    )
+    cut_cmd = b"\x1D\x56\x00"
+    data = body.encode("latin-1", errors="ignore") + cut_cmd
+    try:
+        subprocess.run(["lp", "-d", printer_name], input=data, check=True)
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=500, detail="Erro ao enviar cupom de teste para a impressora")
+    return {"status": "test_printed", "printer": printer_name}
 
 @router.post("/{order_id}/cancel", response_model=schemas.Order)
 def cancel_order(order_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):

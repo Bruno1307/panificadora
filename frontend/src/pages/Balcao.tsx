@@ -106,6 +106,7 @@ function Balcao() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [products, setProducts] = useState<any[]>([]);
+  const [bestSellersMap, setBestSellersMap] = useState<Record<number, number>>({});
   const [cart, setCart] = useState<OrderItem[]>(() => {
     const saved = localStorage.getItem('balcao_cart');
     return saved ? JSON.parse(saved) : [];
@@ -115,6 +116,7 @@ function Balcao() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const roleInfo = localStorage.getItem('role') || '';
 
   function handleCartQtyChange(product_id: number, value: string) {
     setCart(prev => prev.map(i => {
@@ -146,7 +148,19 @@ function Balcao() {
       const api = await getApi();
       try {
         const resProd = await api.get('/products/');
-        setProducts(resProd.data);
+        const rawProducts = Array.isArray(resProd.data) ? resProd.data : [];
+
+        if (roleInfo === 'balconista' && Object.keys(bestSellersMap).length > 0) {
+          const sortedProducts = rawProducts.slice().sort((a: any, b: any) => {
+            const qa = bestSellersMap[a.id] ?? 0;
+            const qb = bestSellersMap[b.id] ?? 0;
+            if (qa !== qb) return qb - qa;
+            return a.name.localeCompare(b.name);
+          });
+          setProducts(sortedProducts);
+        } else {
+          setProducts(rawProducts);
+        }
       } catch (e) {
         showToast('Erro ao carregar produtos. Verifique conexão.', 'error');
       }
@@ -156,6 +170,24 @@ function Balcao() {
     return () => {
       if (wsInstance && typeof wsInstance.close === 'function') wsInstance.close();
     };
+  }, [bestSellersMap, roleInfo]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const api = await getApi();
+        const { data } = await api.get<{ product_id: number; total_quantity: number }[]>(
+          '/indicators/top-products'
+        );
+        const map: Record<number, number> = {};
+        for (const row of data || []) {
+          map[row.product_id] = row.total_quantity;
+        }
+        setBestSellersMap(map);
+      } catch {
+        setBestSellersMap({});
+      }
+    })();
   }, []);
 
   async function loadRecentOrders(apiInstance?: any) {

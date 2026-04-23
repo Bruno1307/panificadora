@@ -1,5 +1,5 @@
 [Unit]
-Description=Padaria PDV Docker Compose
+Description=Padaria PDV Docker Compose (LEGADO - prefira padaria-pdv.service)
 Requires=docker.service
 After=docker.service
 

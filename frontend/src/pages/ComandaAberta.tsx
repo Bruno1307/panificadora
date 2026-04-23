@@ -27,6 +27,7 @@ interface Comanda {
 export default function ComandaAberta() {
   const [comandas, setComandas] = useState<Comanda[]>([]);
   const [produtos, setProdutos] = useState<Product[]>([]);
+  const [bestSellersMap, setBestSellersMap] = useState<Record<number, number>>({});
   const [produtoId, setProdutoId] = useState<string>(() => localStorage.getItem('comanda_produtoId') || '');
   const [qtd, setQtd] = useState<number>(() => {
     const v = localStorage.getItem('comanda_qtd');
@@ -81,9 +82,39 @@ export default function ComandaAberta() {
     try {
       const api = await getApi();
       const { data } = await api.get('/products/');
-      setProdutos(data);
+      const rawProducts = Array.isArray(data) ? data : [];
+
+      // Para papel balconista, prioriza os mais vendidos no seletor.
+      if (roleInfo === 'balconista' && Object.keys(bestSellersMap).length > 0) {
+        const sortedProducts = rawProducts.slice().sort((a: Product, b: Product) => {
+          const qa = bestSellersMap[a.id] ?? 0;
+          const qb = bestSellersMap[b.id] ?? 0;
+          if (qa !== qb) return qb - qa;
+          return a.name.localeCompare(b.name);
+        });
+        setProdutos(sortedProducts);
+        return;
+      }
+
+      setProdutos(rawProducts);
     } catch (e) {
       setMsg('Erro ao carregar produtos');
+    }
+  }
+
+  async function loadTopProducts() {
+    try {
+      const api = await getApi();
+      const { data } = await api.get<{ product_id: number; total_quantity: number }[]>(
+        '/indicators/top-products'
+      );
+      const map: Record<number, number> = {};
+      for (const row of data || []) {
+        map[row.product_id] = row.total_quantity;
+      }
+      setBestSellersMap(map);
+    } catch {
+      setBestSellersMap({});
     }
   }
 
@@ -91,12 +122,16 @@ export default function ComandaAberta() {
   // Atualização automática das comandas a cada 3 segundos
   useEffect(() => {
     loadComandas();
-    loadProdutos();
+    loadTopProducts();
     const interval = setInterval(() => {
       loadComandas();
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    loadProdutos();
+  }, [bestSellersMap, roleInfo]);
 
 
 

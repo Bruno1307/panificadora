@@ -16,13 +16,20 @@ type Order = {
 export default function Orders() {
   const [products, setProducts] = useState<Product[]>([])
   const [productSearch, setProductSearch] = useState('')
-  const [cart, setCart] = useState<OrderItem[]>([])
+  const [cart, setCart] = useState<OrderItem[]>(() => {
+    try { const s = localStorage.getItem('orders_cart'); return s ? JSON.parse(s) : [] } catch { return [] }
+  })
   const [pending, setPending] = useState<Order[]>([])
-  const [customerName, setCustomerName] = useState('')
-  const [tableRef, setTableRef] = useState('')
+  const [customerName, setCustomerName] = useState(() => localStorage.getItem('orders_customerName') || '')
+  const [tableRef, setTableRef] = useState(() => localStorage.getItem('orders_tableRef') || '')
   const [qtyMap, setQtyMap] = useState<Record<number, number>>({})
   const [scanCode, setScanCode] = useState('')
+  const [bestSellersMap, setBestSellersMap] = useState<Record<number, number>>({})
   const scanInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => { localStorage.setItem('orders_cart', JSON.stringify(cart)) }, [cart])
+  useEffect(() => { localStorage.setItem('orders_customerName', customerName) }, [customerName])
+  useEffect(() => { localStorage.setItem('orders_tableRef', tableRef) }, [tableRef])
 
   async function load() {
     const api = await getApi();
@@ -33,6 +40,22 @@ export default function Orders() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const ords = await api.get<Order[]>('/orders/pending', { headers })
     setPending(ords.data)
+
+    // Carrega ranking de produtos mais vendidos (se autorizado)
+    try {
+      const { data } = await api.get<{ product_id: number; total_quantity: number }[]>(
+        '/indicators/top-products',
+        { headers }
+      );
+      const map: Record<number, number> = {};
+      for (const row of data) {
+        map[row.product_id] = row.total_quantity;
+      }
+      setBestSellersMap(map);
+    } catch {
+      // Se der erro (ex: sem permissão), mantém ordenação padrão
+      setBestSellersMap({});
+    }
   }
   useEffect(() => { load() }, [])
   useEffect(() => {
@@ -109,6 +132,9 @@ export default function Orders() {
     setCart([]);
     setCustomerName('');
     setTableRef('');
+    localStorage.removeItem('orders_cart');
+    localStorage.removeItem('orders_customerName');
+    localStorage.removeItem('orders_tableRef');
     await load();
   }
 
@@ -120,6 +146,16 @@ export default function Orders() {
   }, 0)
 
   const orderTotal = (o: Order) => o.items.reduce((s, it) => s + it.unit_price * it.quantity, 0)
+
+  const filteredAndSortedProducts = products
+    .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+    .slice()
+    .sort((a, b) => {
+      const qa = bestSellersMap[a.id] ?? 0
+      const qb = bestSellersMap[b.id] ?? 0
+      if (qa !== qb) return qb - qa
+      return a.name.localeCompare(b.name)
+    })
 
   return (
     <div className="grid">
@@ -145,9 +181,9 @@ export default function Orders() {
           <span className="item-meta">Atalho: F2 para focar</span>
           <button className="button" onClick={scanAdd}>Adicionar por código</button>
         </div>
-        <div style={{marginBottom: 8, color: '#888'}}>Produtos encontrados: {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).length}</div>
+        <div style={{marginBottom: 8, color: '#888'}}>Produtos encontrados: {filteredAndSortedProducts.length}</div>
         <ul className="list">
-          {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+          {filteredAndSortedProducts.map(p => (
             <li key={p.id}>
               <div>
                 <strong>{p.name}</strong>

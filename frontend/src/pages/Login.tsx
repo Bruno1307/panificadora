@@ -13,6 +13,7 @@ export default function Login({ onLogin }: { onLogin: (token: string, role: stri
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    console.log('handleSubmit disparado', { username, password });
     setLoading(true);
     setError('');
     try {

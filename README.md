@@ -43,6 +43,23 @@ make status
 hostname -I | awk '{print $1}'
 ```
 
+### Manutencao automatica (recomendado para cliente)
+Este projeto possui rotina de limpeza segura para evitar crescimento de disco e lentidao por falta de espaco.
+
+- Script: `scripts_deploy/limpa_disco_auto.sh`
+- Agenda padrao: limpeza diaria as 03:15
+- Backup diario: 12:00 (mantido via `backend/backup_db.sh`)
+
+Para aplicar a agenda de limpeza em uma nova instalacao:
+```bash
+(crontab -l 2>/dev/null; cat scripts_deploy/limpa_disco_auto.cron) | crontab -
+```
+
+Para executar limpeza manual:
+```bash
+bash scripts_deploy/limpa_disco_auto.sh
+```
+
 ---
 
 - PIX CNPJ: 61.629.638/0001-80

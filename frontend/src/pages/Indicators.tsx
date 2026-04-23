@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getApi } from '../api';
+import { useToast } from '../components/Toast';
 
 type RevenueData = {
   daily: number;
@@ -16,6 +17,16 @@ export default function Indicators() {
   const [data, setData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { showToast } = useToast();
+  const pagamentoLabels: Record<string, string> = {
+    'dinheiro': 'Dinheiro',
+    'pix': 'Pix',
+    'débito': 'Débito',
+    'crédito': 'Crédito',
+    'ifood': 'Ifood',
+    '99food': '99 Food',
+  };
+  const formatMethodLabel = (method: string) => pagamentoLabels[method] || method;
   // Por padrão: hoje (YYYY-MM-DD) em horário local
   function formatDateYYYYMMDD(d: Date) {
     const y = d.getFullYear();
@@ -26,6 +37,24 @@ export default function Indicators() {
   const todayStr = formatDateYYYYMMDD(new Date());
   const [start, setStart] = useState<string>(todayStr);
   const [end, setEnd] = useState<string>(todayStr);
+
+  async function imprimirFaturamento() {
+    try {
+      const api = await getApi();
+      await api.post('/indicators/revenue/print', null, {
+        params: {
+          ...(start ? { start } : {}),
+          ...(end ? { end } : {}),
+        },
+      });
+      showToast('Faturamento enviado para a impressora.', 'success');
+    } catch (err: any) {
+      let msg = 'Erro ao imprimir faturamento.';
+      if (err?.response?.data?.detail) msg += ' ' + err.response.data.detail;
+      showToast(msg, 'error');
+      console.error('Erro ao imprimir faturamento:', err);
+    }
+  }
 
   async function fetchIndicators(startDate?: string, endDate?: string) {
     setLoading(true);
@@ -93,9 +122,16 @@ export default function Indicators() {
             style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #ccc', minWidth: 140 }}
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
           <button type="submit" style={{ padding: '8px 18px', borderRadius: 8, background: '#6c7bff', color: '#fff', border: 'none', fontWeight: 500, cursor: 'pointer' }}>Filtrar</button>
           <button type="button" style={{ padding: '8px 18px', borderRadius: 8, background: '#eee', color: '#222', border: 'none', fontWeight: 500, cursor: 'pointer' }} onClick={() => { const t = formatDateYYYYMMDD(new Date()); setStart(t); setEnd(t); fetchIndicators(t, t); }}>Limpar</button>
+          <button
+            type="button"
+            style={{ padding: '8px 18px', borderRadius: 8, background: '#23264a', color: '#fff', border: 'none', fontWeight: 500, cursor: 'pointer' }}
+            onClick={imprimirFaturamento}
+          >
+            Imprimir faturamento no cupom
+          </button>
         </div>
       </form>
       {loading && <div>Carregando...</div>}
@@ -112,11 +148,19 @@ export default function Indicators() {
               <div>
                 <strong>Faturamento do Período:</strong> R$ {data.daily.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 <div style={{ marginLeft: 32, marginTop: 8 }}>
-                  {['dinheiro','pix','débito','crédito'].map(method => (
-                    <div key={method}>
-                      {method}: R$ {(data.payment_totals_daily?.[method] ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </div>
-                  ))}
+                  {(() => {
+                    const totals = data.payment_totals_daily || {};
+                    const knownMethods = ['dinheiro','pix','débito','crédito','ifood','99food'];
+                    const allMethods = Array.from(new Set([
+                      ...knownMethods,
+                      ...Object.keys(totals),
+                    ]));
+                    return allMethods.map(method => (
+                      <div key={method}>
+                        {formatMethodLabel(method)}: R$ {(totals[method] ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
             </>
@@ -132,7 +176,9 @@ export default function Indicators() {
                 'dinheiro',
                 'pix',
                 'débito',
-                'crédito'
+                'crédito',
+                'ifood',
+                '99food',
               ];
               const totals = periodTotals || {};
               const allMethods = Array.from(new Set([
@@ -150,7 +196,7 @@ export default function Indicators() {
                   <div style={{ marginLeft: 32, marginTop: 8 }}>
                     {allMethods.map(method => (
                       <div key={method}>
-                        {method}: R$ {(totals[method] ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatMethodLabel(method)}: R$ {(totals[method] ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     ))}
                   </div>

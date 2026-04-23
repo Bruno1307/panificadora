@@ -26,7 +26,7 @@ type Order = {
 type PendingAction = {
   kind: 'cancel' | 'pay';
   orderId: number;
-  method?: 'dinheiro' | 'pix' | 'débito' | 'crédito';
+  method?: 'dinheiro' | 'pix' | 'débito' | 'crédito' | 'ifood' | '99food';
   headers?: Record<string, string>;
 };
 
@@ -49,7 +49,21 @@ export default function Cashier() {
       showToast('Pedido não encontrado.', 'error');
       return;
     }
-    const pagamentoLabels: Record<string, string> = { 'dinheiro': 'Dinheiro', 'pix': 'Pix', 'débito': 'Débito', 'credito': 'Crédito', 'crédito': 'Crédito' };
+    const pagamentoLabels: Record<string, string> = {
+      'dinheiro': 'Dinheiro',
+      'pix': 'Pix',
+      'débito': 'Débito',
+      'credito': 'Crédito',
+      'crédito': 'Crédito',
+      'ifood': 'Ifood',
+      '99food': '99 Food',
+    };
+    const statusPagamentoLabel = order.status === 'pending'
+      ? 'À pagar'
+      : (statusLabels[order.status] || order.status);
+    const pagamentoLabel = order.status === 'pending'
+      ? 'Pendente de pagamento'
+      : (pagamentoLabels[order.payment_method as string] || order.payment_method || '-');
     const dataAtual = new Date().toLocaleString('pt-BR');
     const html = `
       <div style='width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:flex-start;background:var(--bg);'>
@@ -58,7 +72,8 @@ export default function Cashier() {
           <div style='text-align:center;margin-bottom:12px;font-size:18px;'>Pedido #${order.order_number}</div>
           <div style='text-align:left;'>Cliente: ${order.customer_name || '-'}</div>
           <div style='text-align:left;'>Mesa: ${order.table_ref || '-'}</div>
-          <div style='text-align:left;'>Pagamento: ${pagamentoLabels[order.payment_method as string] || order.payment_method || '-'} ${dataAtual}</div>
+          <div style='text-align:left;'>Status: ${statusPagamentoLabel}</div>
+          <div style='text-align:left;'>Pagamento: ${pagamentoLabel} ${dataAtual}</div>
           <hr style='margin:14px 0' />
           <div style='text-align:left;'>
             ${order.items.map((it) => {
@@ -120,6 +135,28 @@ export default function Cashier() {
       gerarPDF();
     }
   }
+  // Função para imprimir cupom na impressora térmica (ESC/POS)
+  async function imprimirCupom(orderId: number) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+      showToast('Pedido não encontrado.', 'error');
+      return;
+    }
+    if (order.status !== 'paid' && order.status !== 'pending') {
+      showToast('Só é possível imprimir cupom de pedidos pendentes ou pagos.', 'error');
+      return;
+    }
+    try {
+      const api = await getApi();
+      await api.post(`/orders/${orderId}/print`);
+      showToast('Cupom enviado para a impressora.', 'success');
+    } catch (err: any) {
+      let msg = 'Erro ao imprimir cupom.';
+      if (err?.response?.data?.detail) msg += ' ' + err.response.data.detail;
+      showToast(msg, 'error');
+      console.error('Erro ao imprimir cupom:', err);
+    }
+  }
   useEffect(() => {
     function atualizarPedidos() { load(); }
     window.addEventListener('pedidoEnviadoAoCaixa', atualizarPedidos);
@@ -159,7 +196,7 @@ export default function Cashier() {
   const [editTable, setEditTable] = useState<string>('');
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
   const [productSearch, setProductSearch] = useState<string>('');
-  const [method, setMethod] = useState<'dinheiro' | 'pix' | 'débito' | 'crédito'>('dinheiro');
+  const [method, setMethod] = useState<'dinheiro' | 'pix' | 'débito' | 'crédito' | 'ifood' | '99food'>('dinheiro');
   const [cashReceivedRaw, setCashReceivedRaw] = useState<string>('');
   const [multiPay, setMultiPay] = useState<boolean>(false);
   const [cashPartRaw, setCashPartRaw] = useState<string>('');
@@ -628,6 +665,8 @@ export default function Cashier() {
                 <span>{total(o, products).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 {o.status === 'pending' && (
                   <>
+                    <button className="button success" onClick={() => imprimirCupom(o.id)}>Imprimir cupom</button>
+                    <button className="button" onClick={() => imprimirRecibo(o.id)}>Imprimir recibo (PDF)</button>
                     <button className="button success" onClick={() => markPaid(o.id)}>Receber</button>
                     <button className="button" onClick={() => setEditOrderFields(o)}>Editar</button>
                     {isGerente && (
@@ -643,7 +682,10 @@ export default function Cashier() {
                   </>
                 )}
                 {o.status === 'paid' && (
-                  <button className="button" onClick={() => imprimirRecibo(o.id)}>Imprimir recibo</button>
+                  <>
+                    <button className="button" onClick={() => imprimirRecibo(o.id)}>Imprimir recibo (PDF)</button>
+                    <button className="button success" onClick={() => imprimirCupom(o.id)}>Imprimir cupom</button>
+                  </>
                 )}
               </div>
             </div>
@@ -835,11 +877,14 @@ export default function Cashier() {
             <div style={{ marginBottom: 12 }}>
               <label className="item-meta">Forma de pagamento</label>
               <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-                {(['dinheiro','pix','débito','crédito'] as const).map(m => (
-                  <label key={m} style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    <input type="radio" name="method" checked={method===m} onChange={()=>setMethod(m)} /> {m}
-                  </label>
-                ))}
+                {(['dinheiro','pix','débito','crédito','ifood','99food'] as const).map(m => {
+                  const label = m === 'ifood' ? 'Ifood' : m === '99food' ? '99 Food' : m;
+                  return (
+                    <label key={m} style={{ display:'flex', gap:6, alignItems:'center' }}>
+                      <input type="radio" name="method" checked={method===m} onChange={()=>setMethod(m)} /> {label}
+                    </label>
+                  );
+                })}
               </div>
               <label style={{ display:'flex', gap:6, alignItems:'center', marginTop: 8 }}>
                 <input type="checkbox" checked={multiPay} onChange={e=>setMultiPay(e.target.checked)} /> Dividir pagamento

@@ -4,7 +4,13 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Instala dependências do sistema (inclui curl para healthcheck)
-RUN apt-get update && apt-get install -y build-essential libpq-dev curl ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+	build-essential \
+	libpq-dev \
+	curl \
+	ffmpeg \
+	cups-bsd \
+	&& rm -rf /var/lib/apt/lists/*
 
 
 # Garante timezone UTC no container

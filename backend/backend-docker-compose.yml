@@ -1,19 +1,19 @@
 version: '3.8'
+
+# AVISO: arquivo legado usado apenas em testes antigos do backend.
+# Para desenvolvimento ou produção, use SEMPRE o docker-compose.yml na raiz do projeto:
+#   cd .. && docker compose up -d --build
+# Este arquivo é mantido apenas como referência e não deve ser usado em produção.
+
 services:
-  backend:
-    restart: always
+  backend-legacy:
+    restart: "no"
     build: .
-    container_name: padaria-backend
+    container_name: padaria-backend-legacy
     ports:
-      - "4173:4173"
+      - "9000:8000"
     volumes:
       - .:/app
       - ./data.db:/app/data.db
     environment:
       - PYTHONUNBUFFERED=1
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4173/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s

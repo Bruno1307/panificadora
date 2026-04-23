@@ -5,7 +5,7 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import engine, Base
-from .routers import products, orders, auth
+from .routers import products, orders, auth, ping
 from .ws import manager
 from contextlib import asynccontextmanager
 
@@ -60,13 +60,14 @@ async def get_config():
 
 
 
-from .routers import indicators, comandas, categories
-app.include_router(products.router)
-app.include_router(orders.router)
-app.include_router(auth.router)
-app.include_router(indicators.router)
-app.include_router(comandas.router)
-app.include_router(categories.router)
+from .routers import indicators, comandas, categories, orders, products
+
+app.include_router(ping.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(orders.router, prefix="/api")
+app.include_router(products.router, prefix="/api")
+app.include_router(comandas.router, prefix="/api")
+app.include_router(indicators.router, prefix="/api")
 
 # Voice (Whisper) opcional para evitar download em ambientes sem internet
 # Ative com ENABLE_VOICE=1 no ambiente

@@ -1,1 +1,9 @@
+version: '3.8'
+
+# AVISO: não usar docker compose a partir do diretório backend.
+# Use sempre o arquivo principal na raiz do projeto:
+#   docker compose up -d --build
+
+services: {}
+
 
