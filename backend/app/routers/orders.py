@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from ..deps_auth import require_role
 from ..models import UserRole
 import os
@@ -116,6 +116,8 @@ def list_orders(
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
     q: Optional[str] = None,
+    limit: int = Query(default=300, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     user=Depends(get_current_user),
 ):
     query = db.query(models.Order)
@@ -153,7 +155,7 @@ def list_orders(
             except Exception:
                 pass
         query = query.filter(or_(*filters))
-    result = query.order_by(models.Order.created_at.desc()).all()
+    result = query.order_by(models.Order.created_at.desc()).offset(offset).limit(limit).all()
     print(f"[DEBUG] /orders retornou {len(result)} pedidos para o usuário {getattr(user, 'username', user)} (papel: {getattr(user, 'role', None)})")
     return result
 
