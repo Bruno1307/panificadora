@@ -17,6 +17,9 @@ export async function getWsUrl() {
     origin = `${proto}://${window.location.host}`;
     pathPrefix = backendUrl || '/';
   }
+  // O backend expõe WebSocket em /ws (sem prefixo /api).
+  // Se a base da API terminar com /api, remove esse sufixo para evitar 403 em /api/ws.
+  pathPrefix = pathPrefix.replace(/\/api\/?$/, '/');
   if (!pathPrefix.endsWith('/')) pathPrefix += '/';
   return `${origin}${pathPrefix}ws`;
 }

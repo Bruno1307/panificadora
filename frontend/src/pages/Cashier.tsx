@@ -319,8 +319,8 @@ export default function Cashier() {
   useEffect(() => {
     load();
     let mounted = true;
-    // Polling leve como fallback (a cada 10s)
-    const poller = window.setInterval(() => { if (mounted) load(); }, 3000);
+    // Polling de fallback em baixa frequência; o canal principal é WebSocket.
+    const poller = window.setInterval(() => { if (mounted) load(); }, 10000);
     const onWsMessage = async (ev: MessageEvent) => {
       if (!mounted) return;
       try {

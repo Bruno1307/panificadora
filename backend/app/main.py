@@ -76,8 +76,7 @@ if os.getenv("ENABLE_VOICE", "0") == "1":
     app.include_router(voice.router)
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def _websocket_loop(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
@@ -85,3 +84,13 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await _websocket_loop(websocket)
+
+
+@app.websocket("/api/ws")
+async def websocket_endpoint_compat(websocket: WebSocket):
+    await _websocket_loop(websocket)
