@@ -1,0 +1,7 @@
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - ./backend/data.db:/app/data.db
+    # Remove o socket CUPS (impressão física via lp) - não disponível no Windows.
+    # A impressão via navegador (PDF/html2pdf) continua funcionando normalmente.
