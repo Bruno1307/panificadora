@@ -60,6 +60,31 @@ Para executar limpeza manual:
 bash scripts_deploy/limpa_disco_auto.sh
 ```
 
+## Replicar em outra máquina
+
+1. Clone o repositório:
+```bash
+git clone <seu-repositorio> panificadora
+cd panificadora
+```
+2. Execute o script de setup:
+```bash
+sh setup.sh
+```
+3. Inicie o backend:
+```bash
+make backend-start CASHIER_TOKEN=caixa123
+```
+4. Inicie o frontend:
+```bash
+make frontend-start
+```
+
+Observações:
+- O ambiente virtual (`.venv`) e o banco de dados local (`backend/data.db`) não fazem parte do Git.
+- Para um novo banco de dados vazio, basta iniciar o backend e o arquivo `backend/data.db` será criado automaticamente.
+- Caso queira usar PostgreSQL, defina `DB_URL` no ambiente antes de iniciar o backend.
+
 ---
 
 - PIX CNPJ: 61.629.638/0001-80
