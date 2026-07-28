@@ -1,5 +1,6 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from ..deps_auth import require_role
 from ..models import UserRole
 import os
@@ -9,6 +10,7 @@ from sqlalchemy import select, or_
 import re
 from datetime import datetime, timedelta
 from typing import Optional
+from fpdf import FPDF
 from ..db import get_db
 from .. import models, schemas
 from ..ws import manager
@@ -39,6 +41,14 @@ def _normalize_payment_label(method: str | None) -> str:
     if m in {"credito", "crédito"}:
         return "CREDITO"
     return method.upper()
+
+
+def _role_name(user) -> str:
+    role_obj = getattr(user, "role", None)
+    role_value = getattr(role_obj, "value", role_obj)
+    if role_value is None:
+        return ""
+    return str(role_value).lower()
 
 
 def build_escpos_receipt(order: models.Order) -> bytes:
@@ -109,6 +119,76 @@ def build_escpos_receipt(order: models.Order) -> bytes:
     cut_cmd = b"\x1D\x56\x00"  # ESC/POS corte total
     return text.encode("latin-1", errors="ignore") + cut_cmd
 
+
+def build_order_pdf_receipt(order: models.Order) -> bytes:
+    """Gera um PDF simples e deterministico do recibo do pedido."""
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.add_page()
+
+    ref = order.order_number or order.id
+    status_label = {
+        "pending": "Pendente",
+        "paid": "Pago",
+        "cancelled": "Cancelado",
+    }.get((order.status or "").lower(), order.status or "-")
+
+    total = 0.0
+    for it in order.items:
+        total += float(it.unit_price) * it.quantity
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "Padaria Jardim", ln=True, align="C")
+
+    pdf.set_font("Helvetica", "", 12)
+    pdf.cell(0, 7, f"Recibo - Pedido #{ref}", ln=True, align="C")
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", ln=True)
+    pdf.cell(0, 6, f"Cliente: {order.customer_name or '-'}", ln=True)
+    pdf.cell(0, 6, f"Mesa/Ref: {order.table_ref or '-'}", ln=True)
+    pdf.cell(0, 6, f"Status: {status_label}", ln=True)
+    pdf.cell(0, 6, f"Pagamento: {order.payment_method or '-'}", ln=True)
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(120, 7, "Item", border=1)
+    pdf.cell(20, 7, "Qtd", border=1, align="C")
+    pdf.cell(25, 7, "Vlr Unit", border=1, align="R")
+    pdf.cell(25, 7, "Total", border=1, align="R", ln=True)
+
+    pdf.set_font("Helvetica", "", 10)
+    for it in order.items:
+        name = it.product.name if getattr(it, "product", None) else f"Item {it.product_id}"
+        name = (name or "-")[:52]
+        unit = float(it.unit_price)
+        line_total = unit * it.quantity
+
+        pdf.cell(120, 7, name, border=1)
+        pdf.cell(20, 7, str(it.quantity), border=1, align="C")
+        pdf.cell(25, 7, _format_currency_br(unit), border=1, align="R")
+        pdf.cell(25, 7, _format_currency_br(line_total), border=1, align="R", ln=True)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 9, f"TOTAL: R$ {_format_currency_br(total)}", ln=True, align="R")
+
+    if order.payments:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.ln(1)
+        pdf.cell(0, 6, "Pagamentos:", ln=True)
+        for p in order.payments:
+            pdf.cell(0, 6, f"- {p.method}: R$ {_format_currency_br(float(p.amount))}", ln=True)
+
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 10)
+    pdf.cell(0, 6, "Obrigado pela preferencia!", ln=True, align="C")
+
+    data = pdf.output(dest="S")
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+    return str(data).encode("latin-1", errors="ignore")
+
 @router.get("/", response_model=list[schemas.Order])
 def list_orders(
     db: Session = Depends(get_db),
@@ -123,21 +203,17 @@ def list_orders(
     query = db.query(models.Order)
     if status:
         query = query.filter(models.Order.status == status)
-    # Ajuste de datas: tratar `start`/`end` como horário local e converter para UTC
-    # Considera fuso UTC-3 (Brasil) como padrão
+    # Filtro de datas por dia local (sem offset fixo).
+    # Evita excluir pedidos da madrugada/manhã quando o timezone do banco/servidor
+    # não corresponde ao offset assumido no código.
     if start or end:
-        LOCAL_OFFSET = timedelta(hours=-3)  # UTC-3
-        def to_utc(dt: datetime) -> datetime:
-            return (dt - LOCAL_OFFSET).replace(tzinfo=None)
         if start:
             local_start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-            start_utc = to_utc(local_start)
-            query = query.filter(models.Order.created_at >= start_utc)
+            query = query.filter(models.Order.created_at >= local_start)
         if end:
             # Torna `end` inclusivo até o fim do dia local
             local_end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
-            end_utc = to_utc(local_end)
-            query = query.filter(models.Order.created_at <= end_utc)
+            query = query.filter(models.Order.created_at <= local_end)
     if q:
         like = f"%{q}%"
         # Sempre permite buscar por nome ou mesa/comanda
@@ -223,8 +299,13 @@ def update_order(order_id: int, data: schemas.OrderCreate, db: Session = Depends
     return order
 
 @router.post("/{order_id}/pay", response_model=schemas.Order)
-def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Session = Depends(get_db)):
-    # Token do caixa removido para facilitar testes
+def pay_order(
+    order_id: int,
+    data: schemas.PayOrder,
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
     order = db.query(models.Order).get(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -233,10 +314,10 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
     # Calcula total do pedido a partir dos itens
     total_value = sum(float(it.unit_price) * it.quantity for it in order.items)
 
-    # Se veio lista de pagamentos, registra partes
+    # Se veio lista de pagamentos, valida e registra partes
     methods_join = None
+    parts_sum = round(total_value, 2)
     if data.payments and len(data.payments) > 0:
-        # Validar e somar
         parts_sum = 0.0
         for part in data.payments:
             if not part.method:
@@ -244,12 +325,10 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
             if part.amount is None or float(part.amount) < 0:
                 raise HTTPException(status_code=400, detail="Payment part amount must be >= 0")
             parts_sum += float(part.amount)
-        # Tolerância de centavos
-        if round(parts_sum, 2) < round(total_value, 2):
-            raise HTTPException(status_code=400, detail="Total payment parts are less than order total")
-        # Remove pagamentos anteriores, se houver, para idempotência
+        parts_sum = round(parts_sum, 2)
+
+        # Limpa pagamentos prévios para idempotência e grava novamente.
         order.payments.clear()
-        # Registrar pagamentos
         for part in data.payments:
             db.add(models.OrderPayment(order_id=order.id, method=part.method, amount=float(part.amount)))
         methods_join = " + ".join(sorted(set(p.method for p in data.payments)))
@@ -257,9 +336,39 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
         # Caso simples: único método informado
         if not data.method:
             raise HTTPException(status_code=400, detail="Payment method required")
-        # Registrar um pagamento com valor total
+        # Sem split, o valor pago é exatamente o total dos itens.
         db.add(models.OrderPayment(order_id=order.id, method=data.method, amount=round(total_value, 2)))
         methods_join = data.method
+
+    expected_total = round(total_value, 2)
+    diff = round(parts_sum - expected_total, 2)
+
+    # Regra principal: pagamento deve bater com o total do pedido.
+    # Exceção só para gerente/admin com justificativa registrada.
+    order.payment_override_reason = None
+    order.payment_override_by = None
+    order.payment_override_diff = None
+    order.payment_override_at = None
+    if abs(diff) > 0.01:
+        role = _role_name(user)
+        if role not in {"gerente", "admin"}:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Payment total must match order total. "
+                    "Only gerente/admin can override with reason."
+                ),
+            )
+        reason = (data.override_reason or "").strip()
+        if not reason:
+            raise HTTPException(
+                status_code=400,
+                detail="Override reason is required when payment differs from order total",
+            )
+        order.payment_override_reason = reason[:255]
+        order.payment_override_by = getattr(user, "username", None)
+        order.payment_override_diff = diff
+        order.payment_override_at = datetime.utcnow()
 
     # Atualizar status e metadados do pedido
     order.status = "paid"
@@ -273,7 +382,7 @@ def pay_order(order_id: int, data: schemas.PayOrder, request: Request, db: Sessi
 
 
 @router.post("/{order_id}/print")
-def print_order(order_id: int, db: Session = Depends(get_db)):
+def print_order(order_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
     """Imprime cupom nao fiscal do pedido (pendente ou pago) na Elgin i9 via CUPS.
 
     OBS: rota sem autenticacao, pensada para uso interno no servidor do PDV.
@@ -295,8 +404,23 @@ def print_order(order_id: int, db: Session = Depends(get_db)):
     return {"status": "printed", "printer": printer_name}
 
 
+@router.get("/{order_id}/receipt-pdf")
+def get_order_receipt_pdf(order_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Retorna o recibo do pedido em PDF sem depender de captura de tela no frontend."""
+    order = db.query(models.Order).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not order.items:
+        raise HTTPException(status_code=400, detail="Order has no items")
+
+    pdf_data = build_order_pdf_receipt(order)
+    filename = f"recibo-pedido-{order.order_number or order.id}.pdf"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(content=pdf_data, media_type="application/pdf", headers=headers)
+
+
 @router.post("/print-test")
-def print_test_ticket():
+def print_test_ticket(user=Depends(get_current_user)):
     """Imprime um cupom de teste curto na impressora de cupom."""
     printer_name = os.getenv("TICKET_PRINTER_NAME", "Elgin_i9")
     body = (

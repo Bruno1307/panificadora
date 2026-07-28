@@ -22,6 +22,13 @@
     padding-top: 8px !important;
   }
 }
+@media (max-width: 900px) {
+  .marketing-grid,
+  .pricing-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 @media (max-width: 600px) {
   .app {
     padding: 4px !important;
@@ -151,6 +158,121 @@ input[type=number] {
 html, body, #root { height: 100%; }
 body { margin: 0; background: radial-gradient(1200px 600px at 20% 0%, #121538 0%, #0b0e25 70%), var(--bg); color: var(--text); }
 body { background: var(--bg); }
+
+.marketing-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.marketing-hero {
+  padding: 40px 32px;
+}
+
+.marketing-hero h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0 0 12px;
+}
+
+.marketing-hero p {
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  max-width: 760px;
+}
+
+.marketing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #eff6ff;
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.marketing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.marketing-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.marketing-pill {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.marketing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.marketing-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.marketing-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.marketing-card p,
+.marketing-card li {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.pricing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.price {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.marketing-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 4px 0;
+}
+
+.marketing-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.marketing-links a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.legal-page ul {
+  padding-left: 20px;
+  line-height: 1.7;
+}
 
 .app {
   max-width: 1200px;
@@ -308,3 +430,211 @@ body { background: var(--bg); }
 /* Receipt specific */
 .receipt { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; width: 320px; margin: 0 auto; }
 .receipt .line { display: flex; justify-content: space-between; }
+
+.products-link-button,
+.barcode-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-width: 220px;
+}
+
+.barcode-sheets-page {
+  grid-template-columns: 1.1fr 1fr;
+  align-items: start;
+}
+
+.barcode-sheets-controls,
+.barcode-sheets-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.barcode-sheets-header,
+.barcode-preview-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.barcode-sheets-actions,
+.barcode-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.barcode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.barcode-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.barcode-product-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.barcode-product-row.is-disabled {
+  opacity: 0.6;
+}
+
+.barcode-product-main {
+  min-width: 0;
+}
+
+.barcode-copies-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.barcode-copies-field .input {
+  width: 92px;
+}
+
+.barcode-empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  color: var(--muted);
+  background: linear-gradient(180deg, #f9fbff 0%, #f4f7fb 100%);
+  padding: 24px;
+}
+
+.barcode-print-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.barcode-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  min-height: 180px;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  background: #fff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.barcode-ticket-name {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.barcode-ticket-price {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.barcode-ticket-code {
+  text-align: center;
+  letter-spacing: 0.22em;
+  font-size: 0.9rem;
+}
+
+.barcode-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.barcode-fallback {
+  min-height: 84px;
+  display: grid;
+  place-items: center;
+  color: var(--danger);
+  border: 1px dashed #fecaca;
+  border-radius: 12px;
+}
+
+@media (max-width: 899px) {
+  .barcode-sheets-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .brand,
+  .nav,
+  .barcode-sheets-controls,
+  .products-link-button {
+    display: none !important;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .barcode-sheets-page,
+  .barcode-sheets-preview-card,
+  .barcode-print-grid {
+    display: block;
+  }
+
+  .barcode-sheets-preview-card {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .barcode-preview-header {
+    display: none;
+  }
+
+  .barcode-print-grid {
+    column-count: 3;
+    column-gap: 10mm;
+  }
+
+  .barcode-ticket {
+    margin: 0 0 10mm;
+    border: 1px solid #cbd5e1;
+    border-radius: 0;
+    padding: 8mm 6mm;
+    min-height: 0;
+  }
+
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+}

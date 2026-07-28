@@ -57,6 +57,10 @@ class Order(BaseModel):
     table_ref: Optional[str] = None
     paid_at: Optional[datetime] = None
     payment_method: Optional[str] = None
+    payment_override_reason: Optional[str] = None
+    payment_override_by: Optional[str] = None
+    payment_override_diff: Optional[float] = None
+    payment_override_at: Optional[datetime] = None
     payments: Optional[List[OrderPayment]] = None
     class Config:
         from_attributes = True
@@ -76,3 +80,27 @@ class OrderPayment(PaymentPart):
 class PayOrder(BaseModel):
     method: Optional[str] = None
     payments: Optional[List[PaymentPart]] = None
+    override_reason: Optional[str] = Field(default=None, max_length=255)
+
+
+class ReconciliationDivergence(BaseModel):
+    order_id: int
+    order_number: Optional[int] = None
+    paid_at: Optional[datetime] = None
+    total_items: float
+    total_payments: float
+    diff: float
+    payment_methods: List[str] = []
+    override_reason: Optional[str] = None
+    override_by: Optional[str] = None
+
+
+class ReconciliationSummary(BaseModel):
+    start: datetime
+    end: datetime
+    paid_orders: int
+    orders_with_divergence: int
+    total_items: float
+    total_payments: float
+    total_difference: float
+    divergences: List[ReconciliationDivergence]

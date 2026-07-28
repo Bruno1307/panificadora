@@ -5,7 +5,7 @@ from app.main import app
 client = TestClient(app)
 
 def test_login_invalido():
-    response = client.post("/auth/login", json={"username": "usuario_inexistente", "password": "senha_errada"})
+    response = client.post("/api/auth/login", json={"username": "usuario_inexistente", "password": "senha_errada"})
     assert response.status_code == 401
     assert response.json()["detail"] == "Usuário ou senha inválidos"
 

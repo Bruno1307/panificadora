@@ -1,5 +1,15 @@
 # Panificadora Jardim PDV
+## Produto comercializável
+Este projeto já ganhou uma camada de apresentação comercial para ser mostrado a clientes potenciais:
+- landing page pública em /produto
+- páginas de privacidade e termos em /privacidade e /termos
+- documentação básica para venda e implantação
+- licença aberta para facilitar a distribuição
 
+Arquivos relevantes:
+- docs/PRIVACY_POLICY.md
+- docs/TERMOS_DE_USO.md
+- LICENSE
 ## Como rodar o sistema
 
 ### Backend (API)

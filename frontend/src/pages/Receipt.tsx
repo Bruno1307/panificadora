@@ -1,64 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getApi } from '../api'
 import QRCode from 'react-qr-code'
 import { QrCodePix } from 'qrcode-pix'
 import React from 'react';
-
-function SimpleReceiptModal({ open, onClose, order, products }) {
-  if (!open) return null;
-  let itemsHtml = '';
-  order.items.forEach(it => {
-    const name = (products.find(p => p.id === it.product_id)?.name || `Item ${it.product_id}`) + ' x' + it.quantity;
-    const value = 'R$ ' + (it.unit_price * it.quantity).toFixed(2);
-    itemsHtml += `<tr><td>${name}</td><td>${value}</td></tr>`;
-  });
-  const html = `
-    <style>
-      table, tr, td, b, hr { color: #000 !important; background: #fff !important; font-weight: bold !important; }
-      body, html { color: #000 !important; background: #fff !important; }
-    </style>
-    <table width="320">
-      <tr><td colspan="2" align="center"><b>Padaria Jardim</b></td></tr>
-      <tr><td colspan="2" align="center"><b>Pedido #${order.id}</b></td></tr>
-      <tr><td colspan="2"><hr></td></tr>
-      <tr><td colspan="2"><b>Cliente:</b> ${order.customer_name || '-'}<br><b>Mesa:</b> ${order.table_ref || '-'}</td></tr>
-      <tr><td colspan="2"><b>Pagamento:</b> ${order.payment_method || '-'} ${order.paid_at ? order.paid_at.replace('T',' ').slice(0,16) : ''}</td></tr>
-      <tr><td colspan="2"><hr></td></tr>
-      ${itemsHtml}
-      <tr><td colspan="2"><hr></td></tr>
-      <tr><td colspan="2" align="right"><b>Total da compra</b>  R$ ${order.items.reduce((acc, it) => acc + it.unit_price * it.quantity, 0).toFixed(2)}</td></tr>
-    </table>
-  `;
-  return (
-    <div style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{background:'var(--card)',padding:24,borderRadius:8,maxWidth:440,width:'100%',boxShadow:'0 2px 12px #0004',color:'var(--text)'}}>
-        <div dangerouslySetInnerHTML={{__html: html}} />
-        <div style={{textAlign:'right',marginTop:16}}>
-          <button onClick={onClose} style={{marginRight:8}}>Fechar</button>
-          <button onClick={() => {
-            // Gera PDF a partir do HTML puro, com estilos fixos
-            const htmlFixed = html.replace(/var\(--text\)/g, '#000').replace(/var\(--card\)/g, '#fff');
-            const temp = document.createElement('div');
-            temp.innerHTML = htmlFixed;
-            document.body.appendChild(temp);
-            const gerar = () => {
-              window.html2pdf().from(temp).set({ margin: 0.2, filename: `recibo-pedido-${order.id}.pdf` }).save().then(() => temp.remove());
-            };
-            if (!window.html2pdf) {
-              const script = document.createElement('script');
-              script.src = '/html2pdf.bundle.min.js';
-              script.onload = gerar;
-              document.body.appendChild(script);
-            } else {
-              gerar();
-            }
-          }}>Download PDF</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 type Order = {
   id: number
@@ -77,6 +22,27 @@ export default function Receipt() {
   const [order, setOrder] = useState<Order | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [pixConfig, setPixConfig] = useState<{ pix_key: string; pix_name: string; pix_city: string } | null>(null)
+  const receiptRef = useRef<HTMLDivElement | null>(null)
+  const pdfStartedRef = useRef(false)
+  const shouldAutoPdf = window.location.search.includes('autoPdf=1')
+
+  async function downloadReceiptPdf(orderData: Order) {
+    const api = await getApi()
+    const response = await api.get(`/orders/${orderData.id}/receipt-pdf`, {
+      responseType: 'blob',
+    })
+    const blob = response.data instanceof Blob
+      ? response.data
+      : new Blob([response.data], { type: 'application/pdf' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `recibo-pedido-${orderData.id}.pdf`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   useEffect(() => {
     async function load() {
@@ -106,6 +72,28 @@ export default function Receipt() {
     }
     loadConfig()
   }, [])
+
+  useEffect(() => {
+    if (!shouldAutoPdf || !order || pdfStartedRef.current || !receiptRef.current) return
+    const gerarPDF = async () => {
+      if (document.fonts?.ready) {
+        try {
+          await document.fonts.ready
+        } catch {}
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      if (pdfStartedRef.current) return
+      pdfStartedRef.current = true
+      try {
+        await downloadReceiptPdf(order)
+      } catch (error) {
+        console.error('Erro ao gerar PDF do recibo:', error)
+      }
+      window.close()
+    }
+
+    void gerarPDF()
+  }, [order, shouldAutoPdf])
 
   const total = useMemo(() => order ? order.items.reduce((s, it) => s + it.unit_price * it.quantity, 0) : 0, [order])
   const pixAmount = useMemo(() => {
@@ -139,38 +127,21 @@ export default function Receipt() {
 
   if (!order) return <div style={{ padding: 16 }}>Carregando...</div>
 
-  // Se for autoPdf, gera PDF automaticamente ao abrir
-  if (window.location.search.includes('autoPdf=1') && order) {
-    // Carrega html2pdf.js dinamicamente se não estiver presente
-    if (!window.html2pdf) {
-      const script = document.createElement('script');
-      script.src = '/html2pdf.bundle.min.js';
-      script.onload = () => gerarPDF();
-      document.body.appendChild(script);
-    } else {
-      gerarPDF();
-    }
-    function gerarPDF() {
-      window.html2pdf()
-        .set({ filename: `recibo-pedido-${order.id}.pdf`, margin: 0.2, html2canvas: { scale: 2 } })
-        .from(document.querySelector('.receipt'))
-        .save();
-      setTimeout(() => window.close(), 1000);
-    }
-    return <div style={{ padding: 16 }}>Gerando PDF...</div>;
-  }
   return (
-    <div className="receipt" style={{
+    <>
+    {shouldAutoPdf && <div style={{ padding: 16 }}>Gerando PDF...</div>}
+    <div ref={receiptRef} className="receipt" style={{
       padding: 24,
       maxWidth: 420,
-      margin: '0 auto',
+      margin: '24px auto',
       fontFamily: 'Arial, Helvetica, sans-serif',
       background: 'var(--card)',
       borderRadius: 12,
       boxShadow: '0 2px 12px #0002',
       border: '2px solid var(--text)',
       color: 'var(--text)',
-      position: 'relative'
+      position: 'relative',
+      pointerEvents: shouldAutoPdf ? 'none' : undefined,
     }}>
       {/* Força CSS global para recibo no PDF */}
       <style>{`
@@ -278,49 +249,7 @@ export default function Receipt() {
         Obrigado pela preferência!
       </div>
       <div style={{ marginTop: 12, textAlign: 'center' }}>
-        <button className="button" style={{background:'#2ecc40',color:'#fff',fontWeight:700,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer'}} onClick={() => {
-          // Gera HTML ultra-simples para o PDF, com estilos 100% fixos (preto no branco)
-          const orderData = order;
-          const productsData = products;
-          let itemsHtml = '';
-          orderData.items.forEach(it => {
-            const name = (productsData.find(p => p.id === it.product_id)?.name || `Item ${it.product_id}`) + ' x' + it.quantity;
-            const value = 'R$ ' + (it.unit_price * it.quantity).toFixed(2);
-            itemsHtml += `<tr><td style='padding:4px 2px;'>${name}</td><td style='text-align:right;padding:4px 2px;'>${value}</td></tr>`;
-          });
-          const html = `
-            <div style='font-family:Arial,sans-serif;max-width:420px;margin:0 auto;background:#fff;color:#000;'>
-              <div style='text-align:center;font-size:22px;font-weight:bold;'><b>Padaria Jardim</b></div>
-              <div style='text-align:center;font-size:15px;'><b>Pedido #${orderData.id}</b></div>
-              <hr style='border:1px solid #000;' />
-              <div style='font-size:13px;'><b>Cliente:</b> ${orderData.customer_name || '-'}<br/><b>Mesa:</b> ${orderData.table_ref || '-'}</div>
-              <div style='font-size:13px;'><b>Pagamento:</b> ${orderData.payment_method || '-'} ${orderData.paid_at ? orderData.paid_at.replace('T',' ').slice(0,16) : ''}</div>
-              <hr style='border:1px solid #000;' />
-              <table style='width:100%;font-size:15px;border-collapse:collapse;'>
-                ${itemsHtml}
-              </table>
-              <hr style='border:1px solid #000;' />
-              <div style='font-size:18px;font-weight:bold;text-align:right;'><b>Total da compra</b>  R$ ${orderData.items.reduce((acc, it) => acc + it.unit_price * it.quantity, 0).toFixed(2)}</div>
-            </div>
-          `;
-          // Cria elemento temporário
-          const temp = document.createElement('div');
-          temp.innerHTML = html;
-          document.body.appendChild(temp);
-          // Carrega html2pdf.js dinamicamente se não estiver presente
-          const gerar = () => {
-            window.html2pdf().from(temp).set({ margin: 0.2, filename: `recibo-pedido-${orderData.id}.pdf` }).save().then(() => temp.remove());
-          };
-          if (!window.html2pdf) {
-            const script = document.createElement('script');
-            script.src = '/html2pdf.bundle.min.js';
-            script.onload = gerar;
-            document.body.appendChild(script);
-          } else {
-            gerar();
-          }
-        }}>Download PDF</button>
-        <SimpleReceiptModal open={showSimpleModal} onClose={() => setShowSimpleModal(false)} order={order} products={products} />
+        <button className="button" style={{background:'#2ecc40',color:'#fff',fontWeight:700,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer'}} onClick={() => void downloadReceiptPdf(order)}>Download PDF</button>
       </div>
       <style>{`
         @media print {
@@ -329,5 +258,6 @@ export default function Receipt() {
         }
       `}</style>
     </div>
+    </>
   )
 }

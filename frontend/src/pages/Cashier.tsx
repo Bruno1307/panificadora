@@ -8,6 +8,19 @@ import { connectOrdersWS } from '../ws';
 import QRCode from 'react-qr-code';
 import { QrCodePix } from 'qrcode-pix';
 
+interface HTML2PDF {
+  (): any;
+  set: (opts: any) => HTML2PDF;
+  from: (source: string | HTMLElement) => HTML2PDF;
+  save: () => Promise<unknown>;
+}
+
+declare global {
+  interface Window {
+    html2pdf?: () => HTML2PDF;
+  }
+}
+
 // Tipos básicos
 type Product = { id: number; name: string; price: number };
 type OrderItem = { product_id: number; quantity: number; unit_price?: number; product_name?: string };
@@ -27,6 +40,7 @@ type PendingAction = {
   kind: 'cancel' | 'pay';
   orderId: number;
   method?: 'dinheiro' | 'pix' | 'débito' | 'crédito' | 'ifood' | '99food';
+  payload?: Record<string, unknown>;
   headers?: Record<string, string>;
 };
 
@@ -44,111 +58,31 @@ export default function Cashier() {
   const wsRef = useRef<WebSocket | null>(null);
   // Função para imprimir recibo em PDF
   async function imprimirRecibo(orderId: number) {
-    // Busca o pedido diretamente da API para garantir dados atualizados e completos,
-    // evitando folha em branco causada por estado React desatualizado ou sem itens.
-    let order: Order | null = null;
     try {
       const api = await getApi();
-      const res = await api.get(`/orders/${orderId}`);
-      order = res.data as Order;
-    } catch {
-      // Fallback: tenta pegar do estado local
-      order = orders.find(o => o.id === orderId) || null;
-    }
-    if (!order) {
-      showToast('Pedido não encontrado.', 'error');
-      return;
-    }
-    const pagamentoLabels: Record<string, string> = {
-      'dinheiro': 'Dinheiro',
-      'pix': 'Pix',
-      'débito': 'Débito',
-      'credito': 'Crédito',
-      'crédito': 'Crédito',
-      'ifood': 'Ifood',
-      '99food': '99 Food',
-    };
-    const statusPagamentoLabel = order.status === 'pending'
-      ? 'À pagar'
-      : (statusLabels[order.status] || order.status);
-    const pagamentoLabel = order.status === 'pending'
-      ? 'Pendente de pagamento'
-      : (pagamentoLabels[order.payment_method as string] || order.payment_method || '-');
-    const dataAtual = new Date().toLocaleString('pt-BR');
-    // HTML com cores fixas (sem var(--bg)/var(--card)) para garantir leitura no PDF
-    // independente de tema claro/escuro da aplicação
-    const html = `
-      <div style='width:100%;padding:32px 20px;font-family:Arial,sans-serif;background:#ffffff;color:#1a1a1a;'>
-        <div style='max-width:360px;margin:0 auto;border:1px solid #e0e0e0;border-radius:12px;padding:28px 20px;background:#ffffff;'>
-          <h3 style='text-align:center;margin:0 0 4px 0;font-size:22px;color:#1a1a1a;'>Padaria Jardim</h3>
-          <div style='text-align:center;margin-bottom:14px;font-size:16px;color:#444;'>Pedido #${order.order_number}</div>
-          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Cliente: ${order.customer_name || '-'}</div>
-          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Mesa: ${order.table_ref || '-'}</div>
-          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Status: ${statusPagamentoLabel}</div>
-          <div style='font-size:15px;margin-bottom:4px;color:#333;'>Pagamento: ${pagamentoLabel}</div>
-          <div style='font-size:13px;margin-bottom:4px;color:#888;'>${dataAtual}</div>
-          <hr style='margin:14px 0;border:none;border-top:1px solid #e0e0e0;' />
-          <div>
-            ${(order.items || []).map((it) => {
-              const prod = products.find((p: Product) => p.id === it.product_id);
-              const name = it.product_name || prod?.name || `Item ${it.product_id}`;
-              const unitPrice = (it.unit_price && it.unit_price > 0) ? it.unit_price : (prod?.price || 0);
-              const valor = (unitPrice * it.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              return `<div style='display:flex;justify-content:space-between;font-size:15px;margin-bottom:4px;color:#222;'><span>${name} x${it.quantity}</span><span>R$ ${valor}</span></div>`;
-            }).join('')}
-          </div>
-          <hr style='margin:14px 0;border:none;border-top:1px solid #e0e0e0;' />
-          <div style='display:flex;justify-content:space-between;font-weight:700;font-size:18px;color:#1a1a1a;'>
-            <span>Total</span>
-            <span>R$ ${(order.items || []).reduce((s: number, it) => {
-              const prod = products.find((p: Product) => p.id === it.product_id);
-              const unitPrice = (it.unit_price && it.unit_price > 0) ? it.unit_price : (prod?.price || 0);
-              return s + unitPrice * it.quantity;
-            }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-        </div>
-      </div>
-    `;
-    // Definição de tipo para window.html2pdf
-    interface HTML2PDF {
-      (): any;
-      set: (opts: any) => HTML2PDF;
-      from: (html: string) => HTML2PDF;
-      save: () => void;
-    }
-    declare global {
-      interface Window {
-        html2pdf?: () => HTML2PDF;
-      }
-    }
-    function gerarPDF() {
-      try {
-        if (!window.html2pdf) {
-          showToast('Atenção: não foi possível gerar o PDF. Tente recarregar a página.', 'error');
-          console.error('window.html2pdf não está disponível!');
-          return;
-        }
-        window.html2pdf().set({ filename: `recibo-pedido-${order!.order_number}.pdf`, margin: 0.2, html2canvas: { scale: 2 } }).from(html).save();
-      } catch (e) {
-        showToast('Erro ao gerar PDF do recibo. Tente novamente ou verifique se o navegador permite downloads automáticos.', 'error');
-        console.error('Erro ao gerar PDF:', e);
-      }
-    }
-    if (!window.html2pdf) {
-      showToast('Carregando biblioteca de PDF, aguarde...', 'info');
-      const script = document.createElement('script');
-      script.src = '/html2pdf.bundle.min.js';
-      script.onload = () => {
-        showToast('Biblioteca html2pdf carregada! Tentando gerar PDF...', 'info');
-        gerarPDF();
-      };
-      script.onerror = () => {
-        showToast('Erro ao carregar a biblioteca de PDF. Verifique sua conexão ou recarregue a página.', 'error');
-        console.error('Erro ao carregar /html2pdf.bundle.min.js');
-      };
-      document.body.appendChild(script);
-    } else {
-      gerarPDF();
+      const response = await api.get(`/orders/${orderId}/receipt-pdf`, {
+        responseType: 'blob',
+      });
+
+      const order = orders.find(o => o.id === orderId);
+      const filename = `recibo-pedido-${order?.order_number || orderId}.pdf`;
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+
+      showToast('Recibo em PDF gerado com sucesso.', 'success');
+    } catch (err: any) {
+      let msg = 'Erro ao gerar recibo em PDF.';
+      if (err?.response?.data?.detail) msg += ` ${err.response.data.detail}`;
+      showToast(msg, 'error');
+      console.error('Erro ao baixar recibo PDF:', err);
     }
   }
   // Função para imprimir cupom na impressora térmica (ESC/POS)
@@ -223,9 +157,13 @@ export default function Cashier() {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
   const [roleInfo] = useState<string>(() => localStorage.getItem('role') || '');
   const roleLower = (roleInfo || '').toLowerCase();
-  const isGerente = roleLower === 'gerente';
+  const isGerente = roleLower === 'gerente' || roleLower === 'admin';
   const isCaixa = roleLower === 'caixa';
   const isPrivileged = isGerente || isCaixa; // perfis que não precisam de X-Cashier-Token
+  const canOverridePayment = isGerente;
+  const [paymentError, setPaymentError] = useState<string>('');
+  const [paymentNeedsOverride, setPaymentNeedsOverride] = useState<boolean>(false);
+  const [overrideReason, setOverrideReason] = useState<string>('');
 
   // Carregar pedidos e produtos
   async function load() {
@@ -279,12 +217,13 @@ export default function Cashier() {
     const next: PendingAction[] = [];
     for (const item of queue) {
       try {
-        const headers = item.headers || {};
+        const headers: Record<string, string> = item.headers ?? {};
         if (item.kind === 'cancel') {
           await api.post(`/orders/${item.orderId}/cancel`, {}, { headers });
           setOrders(prev => prev.map(o => o.id === item.orderId ? { ...o, status: 'cancelled' } : o));
         } else if (item.kind === 'pay') {
-          await api.post(`/orders/${item.orderId}/pay`, { method: item.method }, { headers });
+          const payload = item.payload ?? { method: item.method };
+          await api.post(`/orders/${item.orderId}/pay`, payload, { headers });
           setOrders(prev => prev.map(o => o.id === item.orderId ? { ...o, status: 'paid', payment_method: item.method } : o));
         }
       } catch (e: any) {
@@ -462,6 +401,9 @@ export default function Cashier() {
   async function markPaid(orderId: number) {
     const ord = orders.find(o => o.id === orderId)
     if (!ord) return
+    setPaymentError('')
+    setPaymentNeedsOverride(false)
+    setOverrideReason('')
     setPayingOrder(ord)
     // Removido setCashReceived(0) pois não existe, já usamos setCashReceivedRaw
   }
@@ -470,7 +412,7 @@ export default function Cashier() {
     try {
       const api = await getApi();
       // Para gerente/caixa, não enviar X-Cashier-Token
-      const headers = !isPrivileged && cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
+      const headers: Record<string, string> = !isPrivileged && cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
       // Retry para máxima persistência
       let lastErr: any = null;
       for (let i = 0; i < 3; i++) {
@@ -513,31 +455,54 @@ export default function Cashier() {
   const debitPart = useMemo(() => parseFloat((debitPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [debitPartRaw])
   const creditPart = useMemo(() => parseFloat((creditPartRaw || '').replace(/\./g,'').replace(',', '.')) || 0, [creditPartRaw])
   const partsSum = useMemo(() => cashPart + pixPart + debitPart + creditPart, [cashPart, pixPart, debitPart, creditPart])
+  const amountRemaining = useMemo(() => Math.max(0, Number((payingTotal - partsSum).toFixed(2))), [payingTotal, partsSum])
   const pixAmount = useMemo(() => {
     if (!payingOrder) return 0
     if (multiPay) return Math.max(0, Number(pixPart.toFixed(2)))
     if (method === 'pix') return Math.max(0, Number(payingTotal.toFixed(2)))
     return 0
   }, [payingOrder, multiPay, pixPart, method, payingTotal])
+  const isPixOnlyPayment = Boolean(payingOrder && method === 'pix' && !multiPay)
+  const hasPixInCurrentPayment = Boolean(payingOrder && (isPixOnlyPayment || (multiPay && pixPart > 0)))
+  const confirmButtonLabel = hasPixInCurrentPayment ? 'Pix recebido' : 'Confirmar recebimento'
+  const pixQrSize = isPixOnlyPayment ? 220 : 180
+
+  function buildPaymentPayload(withOverrideReason: string | null = null) {
+    if (multiPay) {
+      const payments = [
+        ...(cashPart > 0 ? [{ method: 'dinheiro', amount: Number(cashPart.toFixed(2)) }] : []),
+        ...(pixPart > 0 ? [{ method: 'pix', amount: Number(pixPart.toFixed(2)) }] : []),
+        ...(debitPart > 0 ? [{ method: 'débito', amount: Number(debitPart.toFixed(2)) }] : []),
+        ...(creditPart > 0 ? [{ method: 'crédito', amount: Number(creditPart.toFixed(2)) }] : []),
+      ];
+      return {
+        payments,
+        ...(withOverrideReason ? { override_reason: withOverrideReason } : {}),
+      };
+    }
+    return {
+      method,
+      ...(withOverrideReason ? { override_reason: withOverrideReason } : {}),
+    };
+  }
 
   async function confirmPayment() {
     if (!payingOrder) return;
+    setPaymentError('');
     // Para gerente/caixa, não enviar X-Cashier-Token
-    const headers = !isPrivileged && cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
-    console.log('Enviando pagamento com token:', cashierToken);
+    const headers: Record<string, string> = !isPrivileged && cashierToken ? { 'X-Cashier-Token': cashierToken } : {};
+    const reason = paymentNeedsOverride ? overrideReason.trim() : '';
+    if (paymentNeedsOverride && canOverridePayment && !reason) {
+      setPaymentError('Informe a justificativa para liberar pagamento com diferença.');
+      return;
+    }
+
+    const payload = buildPaymentPayload(reason || null);
     const api = await getApi();
     // Retry para máxima persistência
     let lastErr: any = null;
     for (let i = 0; i < 3; i++) {
       try {
-        const payload = multiPay ? {
-          payments: [
-            ...(cashPart > 0 ? [{ method: 'dinheiro', amount: Number(cashPart.toFixed(2)) }] : []),
-            ...(pixPart > 0 ? [{ method: 'pix', amount: Number(pixPart.toFixed(2)) }] : []),
-            ...(debitPart > 0 ? [{ method: 'débito', amount: Number(debitPart.toFixed(2)) }] : []),
-            ...(creditPart > 0 ? [{ method: 'crédito', amount: Number(creditPart.toFixed(2)) }] : []),
-          ]
-        } : { method };
         await api.post(`/orders/${payingOrder.id}/pay`, payload, { headers });
         lastErr = null;
         break;
@@ -549,15 +514,46 @@ export default function Cashier() {
       }
     }
     if (lastErr) {
+      const status = lastErr?.response?.status;
+      const detail = String(lastErr?.response?.data?.detail || '').trim();
+      if (status && status < 500) {
+        const lowered = detail.toLowerCase();
+        const likelyReconciliationBlock =
+          lowered.includes('payment total') ||
+          lowered.includes('must match order total') ||
+          lowered.includes('override') ||
+          lowered.includes('diferen');
+
+        if (canOverridePayment && likelyReconciliationBlock) {
+          setPaymentNeedsOverride(true);
+          setPaymentError(detail || 'Pagamento bloqueado por diferença. Informe justificativa para liberar.');
+          return;
+        }
+
+        setPaymentError(detail || 'Pagamento bloqueado. Revise os valores e tente novamente.');
+        return;
+      }
+
       // Enfileira ação para retry em background
       const queue = loadQueue();
-      queue.push({ kind: 'pay', orderId: payingOrder.id, method, headers });
+      queue.push({ kind: 'pay', orderId: payingOrder.id, method, payload, headers });
       saveQueue(queue);
+      showToast('Sem conexão no momento. Pagamento foi enfileirado para sincronizar automaticamente.', 'error');
+      setPayingOrder(null);
+      await load();
+      return;
     }
+
+    setPaymentNeedsOverride(false);
+    setOverrideReason('');
     setPayingOrder(null);
+    showToast('Pagamento confirmado com sucesso.', 'success');
     await load();
   }
   function closeModal() {
+    setPaymentError('');
+    setPaymentNeedsOverride(false);
+    setOverrideReason('');
     setPayingOrder(null)
   }
   // Função para remover acentos e caracteres especiais
@@ -872,7 +868,7 @@ export default function Cashier() {
 
       {payingOrder && (
         <EditOrderModal onClose={closeModal} escEnabled>
-          <div className="card" style={{ width: 560, maxWidth:'90vw' }}>
+          <div className="card" style={{ width: hasPixInCurrentPayment ? 'min(760px, 95vw)' : 'min(560px, 95vw)', maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto' }}>
             <h3>Receber pagamento · Pedido #{payingOrder.order_number}</h3>
             <div style={{marginBottom:12}}>
               <strong>Itens do pedido</strong>
@@ -965,18 +961,33 @@ export default function Cashier() {
                   </div>
                 </div>
                 <div className="item-meta" style={{ marginTop: 8 }}>
-                  Total do pedido: R$ {payingTotal.toFixed(2)} · Soma das partes: R$ {partsSum.toFixed(2)}
+                  Total do pedido: R$ {payingTotal.toFixed(2)} · Falta para o total: R$ {amountRemaining.toFixed(2)}
                 </div>
               </div>
             )}
 
-            {(payingOrder && ((method === 'pix') || (multiPay && pixPart > 0))) && (
-                  <div style={{ display:'flex', gap:16, alignItems:'center', justifyContent:'space-between' }}>
-                    <div style={{ background:'#fff', padding:12 }} key={qrPayload}>
-                      <QRCode value={qrPayload} size={180} key={qrPayload} />
+            {hasPixInCurrentPayment && (
+                  <div style={{
+                    display:'flex',
+                    flexWrap:'wrap',
+                    gap:16,
+                    alignItems:'center',
+                    justifyContent:'space-between',
+                    background:'#f0fdf4',
+                    border:'1px solid #86efac',
+                    borderRadius:12,
+                    padding:12,
+                    marginTop:8
+                  }}>
+                    <div style={{ background:'#fff', padding:12, borderRadius:8 }} key={qrPayload}>
+                      <QRCode value={qrPayload} size={pixQrSize} key={qrPayload} />
                     </div>
-                    <div style={{ flex:1 }}>
+                    <div style={{ flex:1, minWidth: 240 }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#166534', marginBottom: 6 }}>
+                        Aguardando confirmação do Pix
+                      </div>
                       <div className="item-meta"><b>Valor Pix:</b> R$ {pixAmount.toFixed(2)}</div>
+                      <div className="item-meta">Peça para o cliente escanear e concluir no app do banco.</div>
                       <div className="item-meta">Chave Pix: {pixKey}</div>
                       <div className="item-meta">Nome: {pixName} · Cidade: {pixCity}</div>
                       <div style={{
@@ -997,16 +1008,49 @@ export default function Cashier() {
                   </div>
             )}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
+              {paymentError && (
+                <div
+                  style={{
+                    flex: 1,
+                    color: '#b91c1c',
+                    background: '#fee2e2',
+                    border: '1px solid #fecaca',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    textAlign: 'left',
+                  }}
+                >
+                  {paymentError}
+                </div>
+              )}
+            </div>
+
+            {paymentNeedsOverride && canOverridePayment && (
+              <div style={{ marginTop: 8 }}>
+                <label className="item-meta">Justificativa obrigatória para liberação</label>
+                <textarea
+                  className="input"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  rows={3}
+                  placeholder="Ex.: Diferença autorizada por ajuste de fechamento de caixa"
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+            )}
+
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
               <button className="button" style={{background:'#eee',color:'#222',fontWeight:600,border:'none',boxShadow:'0 1px 4px #0001',padding:'10px 24px',borderRadius:8,cursor:'pointer'}} onClick={closeModal}>Cancelar</button>
               <button
                 className="button confirmar"
+                style={hasPixInCurrentPayment ? { background:'#16a34a', borderColor:'#16a34a' } : undefined}
                 onClick={confirmPayment}
                 disabled={
                   (!multiPay && method === 'dinheiro' && (cashReceivedRaw.trim() !== '' && cashReceived < payingTotal)) ||
-                  (multiPay && partsSum < payingTotal)
+                  (paymentNeedsOverride && canOverridePayment && !overrideReason.trim())
                 }
               >
-                Confirmar recebimento
+                {confirmButtonLabel}
               </button>
             </div>
           </div>

@@ -7,8 +7,35 @@ import subprocess
 from ..db import get_db
 from ..models import Order, OrderItem, Product, OrderPayment
 from ..deps_auth import require_role
+from .. import schemas
 
 router = APIRouter(prefix="/indicators", tags=["indicators"])
+
+
+def _resolve_period_utc(start: str | None, end: str | None) -> tuple[datetime, datetime]:
+    """Resolve o período de consulta em UTC usando base local UTC-3."""
+    from datetime import timedelta as td
+
+    local_offset = td(hours=-3)
+    now_local = datetime.utcnow() + local_offset
+
+    def to_utc(dt: datetime) -> datetime:
+        return (dt - local_offset).replace(tzinfo=None)
+
+    local_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    local_end = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if start:
+        local_start = datetime.strptime(start, "%Y-%m-%d")
+    if end:
+        local_end = datetime.strptime(end, "%Y-%m-%d").replace(
+            hour=23,
+            minute=59,
+            second=59,
+            microsecond=999999,
+        )
+
+    return to_utc(local_start), to_utc(local_end)
 
 
 def _format_currency_br(value: float) -> str:
@@ -317,3 +344,68 @@ def get_sold_count(
     )
     total_qty = int(q.scalar() or 0)
     return {"name_filter": name, "sold_today": total_qty}
+
+
+@router.get("/reconciliation", response_model=schemas.ReconciliationSummary)
+def get_reconciliation(
+    db: Session = Depends(get_db),
+    user=Depends(require_role("gerente", "admin")),
+    start: str = Query(default=None, description="Data inicial YYYY-MM-DD"),
+    end: str = Query(default=None, description="Data final YYYY-MM-DD"),
+    limit: int = Query(default=200, ge=1, le=1000),
+):
+    """Conciliação de pedidos pagos: total de itens x total de pagamentos."""
+    try:
+        start_utc, end_utc = _resolve_period_utc(start, end)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    paid_orders = (
+        db.query(Order)
+        .filter(Order.status == "paid")
+        .filter(Order.paid_at >= start_utc)
+        .filter(Order.paid_at <= end_utc)
+        .order_by(Order.paid_at.desc())
+        .all()
+    )
+
+    total_items_sum = 0.0
+    total_payments_sum = 0.0
+    divergences: list[schemas.ReconciliationDivergence] = []
+
+    for order in paid_orders:
+        total_items = round(sum(float(it.unit_price) * it.quantity for it in order.items), 2)
+        total_payments = round(sum(float(p.amount) for p in order.payments), 2)
+        diff = round(total_payments - total_items, 2)
+
+        total_items_sum += total_items
+        total_payments_sum += total_payments
+
+        if abs(diff) > 0.01:
+            divergences.append(
+                schemas.ReconciliationDivergence(
+                    order_id=order.id,
+                    order_number=order.order_number,
+                    paid_at=order.paid_at,
+                    total_items=total_items,
+                    total_payments=total_payments,
+                    diff=diff,
+                    payment_methods=[str(p.method) for p in order.payments],
+                    override_reason=order.payment_override_reason,
+                    override_by=order.payment_override_by,
+                )
+            )
+
+    divergences.sort(key=lambda x: abs(x.diff), reverse=True)
+    limited = divergences[:limit]
+
+    return schemas.ReconciliationSummary(
+        start=start_utc,
+        end=end_utc,
+        paid_orders=len(paid_orders),
+        orders_with_divergence=len(divergences),
+        total_items=round(total_items_sum, 2),
+        total_payments=round(total_payments_sum, 2),
+        total_difference=round(total_payments_sum - total_items_sum, 2),
+        divergences=limited,
+    )

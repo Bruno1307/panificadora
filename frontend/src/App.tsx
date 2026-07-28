@@ -6,8 +6,11 @@ import Receipt from './pages/Receipt'
 import Logo from './components/Logo'
 import Balcao from './pages/Balcao'
 import Indicators from './pages/Indicators'
+import BarcodeSheets from './pages/BarcodeSheets'
 // ...existing code...
 import Login from './pages/Login'
+import ProductLanding from './pages/ProductLanding'
+import LegalPage from './pages/LegalPage'
 import React, { useState } from 'react';
 import { ToastProvider } from './components/Toast';
 
@@ -22,6 +25,8 @@ export default function App() {
   // Persistir autenticação após atualizar a página
   const [token, setToken] = useState(() => localStorage.getItem('token') || '');
   const [role, setRole] = useState(() => localStorage.getItem('role') || '');
+  const publicRoutes = ['/', '/produto', '/login', '/privacidade', '/termos', '/balcao'];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
   // Tema fixo claro
   React.useEffect(() => {
     // Tema escuro removido, sempre tema claro
@@ -46,13 +51,13 @@ export default function App() {
 
   // Se não autenticado, redireciona para /login (exceto /balcao)
   React.useEffect(() => {
-    if (!token && location.pathname !== '/balcao' && location.pathname !== '/login') {
+    if (!token && !isPublicRoute && location.pathname !== '/balcao') {
       navigate('/login', { replace: true });
     }
-  }, [token, location.pathname, navigate]);
+  }, [token, location.pathname, navigate, isPublicRoute]);
   // Redirecionamentos centralizados em useEffect
   React.useEffect(() => {
-    if (!token && location.pathname !== '/login') {
+    if (!token && !isPublicRoute) {
       navigate('/login', { replace: true });
     } else if (token && location.pathname === '/login') {
       navigate('/');
@@ -61,7 +66,7 @@ export default function App() {
     } else if (role === 'caixa' && location.pathname === '/') {
       navigate('/cashier', { replace: true });
     }
-  }, [token, role, location.pathname, navigate]);
+  }, [token, role, location.pathname, navigate, isPublicRoute]);
 
   // Controle de rotas por perfil
   const isGerente = role === 'gerente' || role === 'admin';
@@ -88,12 +93,14 @@ export default function App() {
           <>
             <nav className="nav">
               {isGerente && <Link to="/">Produtos</Link>}
+              {isGerente && <Link to="/barcode-sheets">Fichas</Link>}
               {(isGerente || role === 'caixa') && <Link to="/orders">Pedidos</Link>}
               {(isGerente || role === 'caixa') && <Link to="/cashier">Caixa</Link>}
               {isGerente && <Link to="/indicators">Indicadores</Link>}
             </nav>
             <Routes>
               {isGerente && <Route path="/" element={<Products />} />}
+              {isGerente && <Route path="/barcode-sheets" element={<BarcodeSheets />} />}
               {(isGerente || role === 'caixa') && <Route path="/orders" element={<Orders />} />}
               {(isGerente || role === 'caixa') && <Route path="/cashier" element={<Cashier />} />}
               {(isGerente || role === 'caixa') && <Route path="/receipt/:id" element={<Receipt />} />}
@@ -107,8 +114,13 @@ export default function App() {
           </>
         ) : (
           <Routes>
+            <Route path="/" element={<ProductLanding />} />
+            <Route path="/produto" element={<ProductLanding />} />
+            <Route path="/privacidade" element={<LegalPage title="Política de privacidade" intro="Esta política descreve como o produto trata dados e operações do cliente." items={["Os dados de uso permanecem restritos ao ambiente do sistema.", "O acesso é controlado por usuários e senhas.", "O cliente deve manter seus dados em segurança."]} />} />
+            <Route path="/termos" element={<LegalPage title="Termos de uso" intro="Ao utilizar o produto, o cliente concorda com os termos abaixo." items={["O sistema é destinado a operação comercial do negócio.", "O cliente é responsável por seu uso e segurança.", "Suporte técnico pode variar conforme o plano contratado."]} />} />
             <Route path="/login" element={<Login onLogin={handleLogin} />} />
-            <Route path="*" element={<Login onLogin={handleLogin} />} />
+            <Route path="/balcao" element={<Balcao />} />
+            <Route path="*" element={<ProductLanding />} />
           </Routes>
         )}
       </div>

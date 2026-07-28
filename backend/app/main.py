@@ -31,6 +31,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Panificadora Jardim API", lifespan=lifespan)
 
+
+def _get_allowed_origins() -> list[str]:
+    """Reads allowed CORS origins from env; defaults to localhost only."""
+    raw = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
 # Rota raiz
 @app.get("/")
 async def root():
@@ -39,7 +45,7 @@ async def root():
 # CORS for local dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*", "X-Cashier-Token", "x-cashier-token"],

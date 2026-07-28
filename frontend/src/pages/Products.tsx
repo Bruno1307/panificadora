@@ -1,5 +1,6 @@
 import { useToast } from '../components/Toast';
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getApi } from '../api'
 
 type Product = { id: number; name: string; price: number; barcode?: string | null }
@@ -86,7 +87,12 @@ export default function Products() {
 
   return (
     <div className="card">
-      <h2>Produtos</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <h2 style={{ marginBottom: 0 }}>Produtos</h2>
+        <Link className="button secondary products-link-button" to="/barcode-sheets">
+          Abrir fichas para impressao
+        </Link>
+      </div>
       <form onSubmit={addProduct} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <input className="input" placeholder="Nome do produto" value={name} onChange={e => setName(e.target.value)} />
         <input className="input" type="number" step="0.01" value={price} onChange={e => setPrice(parseFloat(e.target.value))} />

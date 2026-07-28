@@ -47,6 +47,10 @@ class Order(Base):
     table_ref: Mapped[str | None] = mapped_column(String(30), nullable=True)
     paid_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
     payment_method: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    payment_override_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    payment_override_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    payment_override_diff: Mapped[float | None] = mapped_column(Numeric(10,2), nullable=True)
+    payment_override_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
     items: Mapped[list[OrderItem]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     payments: Mapped[list[OrderPayment]] = relationship("OrderPayment", back_populates="order", cascade="all, delete-orphan")
 
